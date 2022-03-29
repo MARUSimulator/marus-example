@@ -1,0 +1,3 @@
+[submodule "Assets/LabustSim"]
+	path = Assets/LabustSim
+	url = git@github.com:labust/LabustSim.git
