@@ -11,11 +11,11 @@ TagManager:
   - 
   - Water
   - UI
-  - 
+  - Lidar
   - 
   - PostProcessing
   - Not in Reflection
-  - 
+  - Visualization
   - 
   - 
   - 
@@ -40,4 +40,10 @@ TagManager:
   m_SortingLayers:
   - name: Default
     uniqueID: 0
+    locked: 0
+  - name: Lines
+    uniqueID: 1406210721
+    locked: 0
+  - name: Points
+    uniqueID: 1527757717
     locked: 0
