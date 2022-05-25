@@ -1312,6 +1312,7 @@ GameObject:
   - component: {fileID: 5151775719215806990}
   - component: {fileID: 5151775719215806991}
   - component: {fileID: 5151775719215806988}
+  - component: {fileID: 7547783837108099281}
   m_Layer: 0
   m_Name: marus_boat
   m_TagString: Vehicle
@@ -1400,6 +1401,19 @@ MonoBehaviour:
   rotSpeed: 700
   vehId: veh
   thrusterController: {fileID: 5151775718599147163}
+--- !u!114 &7547783837108099281
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5151775719215806989}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 311b6f9502610464baa63648ee59833d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  callbackName: UpdateVehicle
 --- !u!1 &5151775719277042614
 GameObject:
   m_ObjectHideFlags: 0
@@ -1973,7 +1987,7 @@ MonoBehaviour:
   measurementNoise:
     ParameterKeys: []
     ParameterValues: []
-    NoiseTypeFullName: 
+    NoiseTypeFullName: Marus.NoiseDistributions.Noise+NoNoise
   isRTK: 1
   maximumOperatingDepth: 0.5
   point:
