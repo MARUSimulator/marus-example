@@ -18,7 +18,7 @@ gRPC ROS adapter is implemented in our [ros package](https://github.com/MARUSimu
 
 * Clone this repository in your pc.
 * After cloning, run following command to pull [marus-core](https://github.com/MARUSimulator/marus-core) submodule:
-`git submodule update --init`
+`git submodule update --init --recursive`
 
 ## Documentation
 * [API Documentation]()
