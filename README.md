@@ -11,10 +11,15 @@ gRPC ROS adapter is implemented in our [ros package](https://github.com/MARUSimu
 
 ## Dependencies
 
-* Unity 2021.3 LTS
+* Unity 2021.3.x LTS
+
+### Setup dependencies
+* git & git-lfs
 
 
 ## Setup & Usage
+
+Make sure you have git-lfs installed on your system.
 
 * Clone this repository in your pc.
 * After cloning, run following command to pull [marus-core](https://github.com/MARUSimulator/marus-core) submodule:
