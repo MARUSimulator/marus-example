@@ -191,7 +191,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775718573208648}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.6, y: -0.3, z: -1}
+  m_LocalPosition: {x: -0.6, y: 0.1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -210,7 +210,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 001ace28518ec9f4db7c9aa58df1121c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  voltage: 16
+  voltage: 23
+  lastAppliedForce: 0
+  lastAppliedTime: 
 --- !u!1 &5151775718599147160
 GameObject:
   m_ObjectHideFlags: 0
@@ -291,7 +293,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775718661174648}
   m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: 0, y: 0.5, z: -0.6}
+  m_LocalPosition: {x: 0, y: 0.9, z: 0.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -546,7 +548,7 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775718769406915}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0.00000008146034, y: 1.1551786e-21, z: 1.5072885e-14, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -588,7 +590,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775718942468910}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.85, z: -0.35}
+  m_LocalPosition: {x: 0, y: 1.25, z: 0.65}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -612,8 +614,8 @@ MonoBehaviour:
   SampleFrequency: 5
   WidthRes: 512
   HeightRes: 64
-  MaxDistance: 230
-  MinDistance: 3
+  MaxDistance: 200
+  MinDistance: 0.3
   VerticalFieldOfView: 40
   HorizontalFieldOfView: 360
   pointCloudShader: {fileID: 7200000, guid: cf69eb52c28313f94a3ae2c565eb3220, type: 3}
@@ -759,13 +761,13 @@ MonoBehaviour:
     - 1.61
     - -1.69
     RayIntervals: []
-  - Name: Hackathon
+  - Name: Pandar64
     Type: 2
     Frequency: 5
     FrameId: marus_boat/lidar_frame
     MaxRange: 230
-    MinRange: 3
-    HorizontalResolution: 512
+    MinRange: 0.3
+    HorizontalResolution: 1024
     VerticalResolution: 64
     HorizontalFieldOfView: 360
     VerticalFieldOfView: 40
@@ -999,7 +1001,83 @@ MonoBehaviour:
     VerticalFieldOfView: 40
     ChannelAngles: []
     RayIntervals: []
-  ConfigIndex: 1
+  - Name: Hackathon
+    Type: 2
+    Frequency: 5
+    FrameId: marus_boat/lidar_frame
+    MaxRange: 200
+    MinRange: 0.3
+    HorizontalResolution: 512
+    VerticalResolution: 64
+    HorizontalFieldOfView: 360
+    VerticalFieldOfView: 40
+    ChannelAngles:
+    - -25
+    - -19
+    - -14
+    - -13
+    - -12
+    - -11
+    - -10
+    - -9
+    - -8
+    - -7
+    - -6
+    - -5.8333335
+    - -5.6666665
+    - -5.5
+    - -5.3333335
+    - -5.1666665
+    - -5
+    - -4.8333335
+    - -4.6666665
+    - -4.5
+    - -4.3333335
+    - -4.1666665
+    - -4
+    - -3.8333333
+    - -3.6666665
+    - -3.5
+    - -3.3333333
+    - -3.1666665
+    - -3
+    - -2.8333333
+    - -2.6666665
+    - -2.5
+    - -2.3333333
+    - -2.1666665
+    - -1.9999999
+    - -1.8333333
+    - -1.6666665
+    - -1.4999999
+    - -1.3333333
+    - -1.1666665
+    - -0.9999999
+    - -0.8333332
+    - -0.6666665
+    - -0.49999982
+    - -0.33333316
+    - -0.1666665
+    - 0.00000017881393
+    - 0.16666685
+    - 0.33333352
+    - 0.5000002
+    - 0.66666687
+    - 0.83333355
+    - 1.0000002
+    - 1.1666669
+    - 1.3333335
+    - 1.5000002
+    - 1.6666669
+    - 1.8333336
+    - 2
+    - 3
+    - 4
+    - 5
+    - 8
+    - 11
+    RayIntervals: []
+  ConfigIndex: 5
   _rayIntervals: []
   _rayType: 2
   blackHoleLayers:
@@ -1067,7 +1145,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775718962511213}
   m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0.42, y: 0.45, z: -0.35}
+  m_LocalPosition: {x: 0.42, y: 0.85, z: 0.65}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1309,8 +1387,9 @@ GameObject:
   m_Component:
   - component: {fileID: 5151775719288335777}
   - component: {fileID: 5151775719215806985}
-  - component: {fileID: 5151775719215806990}
-  - component: {fileID: 5151775719215806991}
+  - component: {fileID: 2103999755564158442}
+  - component: {fileID: 7331775746748027758}
+  - component: {fileID: 3638691487595878946}
   - component: {fileID: 5151775719215806988}
   - component: {fileID: 7547783837108099281}
   m_Layer: 0
@@ -1346,16 +1425,16 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775719215806989}
   serializedVersion: 2
-  m_Mass: 10
+  m_Mass: 800
   m_Drag: 0
-  m_AngularDrag: 0.5
+  m_AngularDrag: 3
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!65 &5151775719215806990
-BoxCollider:
+--- !u!64 &2103999755564158442
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -1364,10 +1443,11 @@ BoxCollider:
   m_Material: {fileID: 0}
   m_IsTrigger: 0
   m_Enabled: 1
-  serializedVersion: 2
-  m_Size: {x: 1.5, y: 0.7, z: 3}
-  m_Center: {x: 0, y: -0.05, z: 0.5}
---- !u!114 &5151775719215806991
+  serializedVersion: 4
+  m_Convex: 1
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 3647163469179044558, guid: 51d869b8bab45bf48b9d0696cb4184e7, type: 3}
+--- !u!114 &7331775746748027758
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1376,15 +1456,36 @@ MonoBehaviour:
   m_GameObject: {fileID: 5151775719215806989}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4456b63afb401f64c90b5b657014a979, type: 3}
+  m_Script: {fileID: 11500000, guid: b6f1f4e7c75ed7749a1335046b29a131, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  density: 200
-  slicesPerAxis: 10
-  isConcave: 1
-  deltaCBG: 0
-  drag: 0.02
-  fluidDensity: 1000
+  boat: {fileID: 5151775719215806989}
+  boatMesh: {fileID: 639946205516779045}
+  centerOfMass: {x: 0, y: 0.2, z: 1}
+  simplifyMesh: 1
+  meshQuality: 0.2
+--- !u!114 &3638691487595878946
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5151775719215806989}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c8c0249a8b3ad5408ba3831e0c1ddf4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  velocityReference: 1
+  C_PD1: 10
+  C_PD2: 10
+  f_P: 0.4
+  C_SD1: 10
+  C_SD2: 10
+  f_S: 0.4
+  p: 2
+  acc_max: 10
+  slammingCheat: 10
 --- !u!114 &5151775719215806988
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1443,7 +1544,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775719277042614}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.5, z: -0.1}
+  m_LocalPosition: {x: 0, y: 0.9, z: 0.9}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1704,7 +1805,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775719288335778}
   m_LocalRotation: {x: 0, y: -0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: -0.43, y: 0.45, z: -0.35}
+  m_LocalPosition: {x: -0.43, y: 0.85, z: 0.65}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1963,7 +2064,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775720007779575}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.95, z: -0.35}
+  m_LocalPosition: {x: 0, y: 1.35, z: 0.65}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2056,7 +2157,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775720013432417}
   m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: -0.2, z: 1.1}
+  m_LocalPosition: {x: 0, y: 0.2, z: 2.1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2075,7 +2176,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 001ace28518ec9f4db7c9aa58df1121c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  voltage: 10
+  voltage: 21
+  lastAppliedForce: 0
+  lastAppliedTime: 
 --- !u!1 &5151775720091283019
 GameObject:
   m_ObjectHideFlags: 0
@@ -2086,6 +2189,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5151775720091283018}
   - component: {fileID: 5151775720091282998}
+  - component: {fileID: 1580532862268854464}
   - component: {fileID: 5151775720091282999}
   - component: {fileID: 5151775720091282996}
   - component: {fileID: 5151775720091282997}
@@ -2104,7 +2208,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775720091283019}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0.4, z: 1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2121,12 +2225,27 @@ Rigidbody:
   serializedVersion: 2
   m_Mass: 0.01
   m_Drag: 0
-  m_AngularDrag: 0.05
-  m_UseGravity: 1
-  m_IsKinematic: 1
+  m_AngularDrag: 0
+  m_UseGravity: 0
+  m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!138 &1580532862268854464
+FixedJoint:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5151775720091283019}
+  m_ConnectedBody: {fileID: 5151775719215806985}
+  m_ConnectedArticulationBody: {fileID: 0}
+  m_BreakForce: Infinity
+  m_BreakTorque: Infinity
+  m_EnableCollision: 0
+  m_EnablePreprocessing: 1
+  m_MassScale: 1
+  m_ConnectedMassScale: 1
 --- !u!114 &5151775720091282999
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2140,7 +2259,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   frameId: marus_boat/imu_frame
-  SampleFrequency: 20
+  SampleFrequency: 100
   withGravity: 1
   debug: 1
   AccelerometerNoise:
@@ -2172,7 +2291,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 580d39d35a6572c4ba4d0704d789d444, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  UpdateFrequency: 20
+  UpdateFrequency: 100
   address: marus_boat/imu
 --- !u!114 &5151775720091282997
 MonoBehaviour:
@@ -2301,7 +2420,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775720178495044}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.6, y: -0.3, z: -1}
+  m_LocalPosition: {x: 0.6, y: 0.1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2320,7 +2439,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 001ace28518ec9f4db7c9aa58df1121c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  voltage: 16
+  voltage: 23
+  lastAppliedForce: 0
+  lastAppliedTime: 
 --- !u!1 &5151775720298589791
 GameObject:
   m_ObjectHideFlags: 0
@@ -2516,11 +2637,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 51d869b8bab45bf48b9d0696cb4184e7, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.4
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 51d869b8bab45bf48b9d0696cb4184e7, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 51d869b8bab45bf48b9d0696cb4184e7, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2563,5 +2684,10 @@ PrefabInstance:
 --- !u!4 &264123594276050079 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 51d869b8bab45bf48b9d0696cb4184e7, type: 3}
+  m_PrefabInstance: {fileID: 297486610682016628}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &639946205516779045 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 51d869b8bab45bf48b9d0696cb4184e7, type: 3}
   m_PrefabInstance: {fileID: 297486610682016628}
   m_PrefabAsset: {fileID: 0}
