@@ -210,9 +210,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 001ace28518ec9f4db7c9aa58df1121c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  voltage: 23
-  lastAppliedForce: 0
-  lastAppliedTime: 
+  voltage: 22
+  forceLatchTime: 0.2
+  lastForceRequest: 0
+  timeSinceForceRequest: 0
 --- !u!1 &5151775718599147160
 GameObject:
   m_ObjectHideFlags: 0
@@ -482,6 +483,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/camera_stern_frame
   SampleFrequency: 10
+  streamInFixedUpdate: 0
   SampleCameraImage: {fileID: 0}
   cameraShader: {fileID: 7200000, guid: 9ab2f2960ead89444accf9351485eb81, type: 3}
   ImageCrop: 4
@@ -612,6 +614,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/lidar_frame
   SampleFrequency: 5
+  streamInFixedUpdate: 0
   WidthRes: 512
   HeightRes: 64
   MaxDistance: 200
@@ -1334,6 +1337,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/camera_starboard_frame
   SampleFrequency: 10
+  streamInFixedUpdate: 0
   SampleCameraImage: {fileID: 0}
   cameraShader: {fileID: 7200000, guid: 9ab2f2960ead89444accf9351485eb81, type: 3}
   ImageCrop: 4
@@ -1425,7 +1429,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5151775719215806989}
   serializedVersion: 2
-  m_Mass: 800
+  m_Mass: 900
   m_Drag: 0
   m_AngularDrag: 3
   m_UseGravity: 1
@@ -1476,16 +1480,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c8c0249a8b3ad5408ba3831e0c1ddf4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  velocityReference: 1
-  C_PD1: 10
-  C_PD2: 10
+  velocityReference: 5
+  C_PD1: 1500
+  C_PD2: 1100
   f_P: 0.4
-  C_SD1: 10
-  C_SD2: 10
+  C_SD1: 900
+  C_SD2: 900
   f_S: 0.4
   p: 2
-  acc_max: 10
-  slammingCheat: 10
+  acc_max: 2
+  slammingCheat: 5
 --- !u!114 &5151775719215806988
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1733,6 +1737,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/camera_bow_frame
   SampleFrequency: 10
+  streamInFixedUpdate: 0
   SampleCameraImage: {fileID: 0}
   cameraShader: {fileID: 7200000, guid: 9ab2f2960ead89444accf9351485eb81, type: 3}
   ImageCrop: 4
@@ -1994,6 +1999,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/camera_port_frame
   SampleFrequency: 10
+  streamInFixedUpdate: 0
   SampleCameraImage: {fileID: 0}
   cameraShader: {fileID: 7200000, guid: 9ab2f2960ead89444accf9351485eb81, type: 3}
   ImageCrop: 4
@@ -2085,6 +2091,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/gps_frame
   SampleFrequency: 10
+  streamInFixedUpdate: 0
   measurementNoise:
     ParameterKeys: []
     ParameterValues: []
@@ -2177,8 +2184,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   voltage: 21
-  lastAppliedForce: 0
-  lastAppliedTime: 
+  forceLatchTime: 0.2
+  lastForceRequest: 0
+  timeSinceForceRequest: 0
 --- !u!1 &5151775720091283019
 GameObject:
   m_ObjectHideFlags: 0
@@ -2260,8 +2268,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/imu_frame
   SampleFrequency: 100
+  streamInFixedUpdate: 1
   withGravity: 1
-  debug: 1
+  debug: 0
   AccelerometerNoise:
     ParameterKeys: []
     ParameterValues: []
@@ -2439,9 +2448,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 001ace28518ec9f4db7c9aa58df1121c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  voltage: 23
-  lastAppliedForce: 0
-  lastAppliedTime: 
+  voltage: 22
+  forceLatchTime: 0.2
+  lastForceRequest: 0
+  timeSinceForceRequest: 0
 --- !u!1 &5151775720298589791
 GameObject:
   m_ObjectHideFlags: 0
