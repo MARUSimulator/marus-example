@@ -83,6 +83,110 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &302915533329071869
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5027534346361454649}
+  - component: {fileID: 1762786082114768825}
+  - component: {fileID: 6371229191980587117}
+  - component: {fileID: 666937732361807922}
+  m_Layer: 0
+  m_Name: sonar
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5027534346361454649
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 302915533329071869}
+  m_LocalRotation: {x: 0.2588191, y: 0, z: 0, w: 0.9659258}
+  m_LocalPosition: {x: -0, y: -0, z: 2.052}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5151775718769406914}
+  m_RootOrder: 7
+  m_LocalEulerAnglesHint: {x: 30, y: 0, z: 0}
+--- !u!114 &1762786082114768825
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 302915533329071869}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68500ff1950b0b945a99be6f067cd0d0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  frameId: marus_boat/sonar_frame
+  SampleFrequency: 20
+  WidthRes: 256
+  HeightRes: 256
+  RayIntensity: 10
+  MaxDistance: 30
+  MinDistance: 0.6
+  HorizontalFieldOfView: 60
+  VerticalFieldOfView: 30
+  imageHeight: 256
+  CartesianXRes: 256
+  CartesianYRes: 256
+  sonarRayDistribution: 1
+  SaveImages: 0
+  ImageSavePath: 
+  DisplayImages: 0
+  sonarDisplay: {fileID: 0}
+  sonarPhotoDisplay: {fileID: 0}
+  sonarCartesianDisplay: {fileID: 0}
+  sonarImage: {fileID: 0}
+  sonarPhotoImage: {fileID: 0}
+  sonarCartesianImage: {fileID: 0}
+  ClassInstancePolarImage: {fileID: 0}
+  ClassInstanceImage: {fileID: 0}
+--- !u!114 &6371229191980587117
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 302915533329071869}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8792ddd53075f884e9fd97c695703df8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  UpdateFrequency: 10
+  address: marus_boat/sonar
+  MessageQueueSize: 10000
+--- !u!114 &666937732361807922
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 302915533329071869}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0fcd8a5895ee1daf39ca9ac1dc1e169d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  UpdateFrequency: 1
+  ParentTransform: {fileID: 5151775719288335777}
+  ParentFrameId: marus_boat/base_link
+  FrameId: marus_boat/sonar_frame
+  AddOffset: 0
+  TranslationOffset: {x: 0, y: 0, z: 0}
+  RotationOffset: {x: 0, y: 0, z: 0}
 --- !u!1 &3606686916027938080
 GameObject:
   m_ObjectHideFlags: 0
@@ -483,17 +587,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/camera_stern_frame
   SampleFrequency: 10
-  streamInFixedUpdate: 0
-  SampleCameraImage: {fileID: 0}
-  cameraShader: {fileID: 7200000, guid: 9ab2f2960ead89444accf9351485eb81, type: 3}
-  ImageCrop: 4
-  SynchronousUpdate: 0
-  PixelWidth: 1280
-  PixelHeight: 720
-  FarPlane: 10000
-  NearPlane: 0.08
-  focalLengthMilliMeters: 5.5
-  pixelSizeInMicroMeters: 3.45
+  ImageWidth: 1920
+  ImageHeight: 1080
+  Data: 
 --- !u!114 &5151775718661174629
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -508,6 +604,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UpdateFrequency: 10
   address: marus_boat/camera_stern
+  MessageQueueSize: 10000
 --- !u!114 &5151775718661174650
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -562,6 +659,7 @@ Transform:
   - {fileID: 5151775719288335788}
   - {fileID: 5151775720007779568}
   - {fileID: 5151775720091283018}
+  - {fileID: 5027534346361454649}
   m_Father: {fileID: 5151775719288335777}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -614,7 +712,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/lidar_frame
   SampleFrequency: 5
-  streamInFixedUpdate: 0
   WidthRes: 512
   HeightRes: 64
   MaxDistance: 200
@@ -1100,6 +1197,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UpdateFrequency: 5
   address: marus_boat/lidar
+  MessageQueueSize: 10000
 --- !u!114 &5151775718942468904
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1337,17 +1435,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/camera_starboard_frame
   SampleFrequency: 10
-  streamInFixedUpdate: 0
-  SampleCameraImage: {fileID: 0}
-  cameraShader: {fileID: 7200000, guid: 9ab2f2960ead89444accf9351485eb81, type: 3}
-  ImageCrop: 4
-  SynchronousUpdate: 0
-  PixelWidth: 1280
-  PixelHeight: 720
-  FarPlane: 10000
-  NearPlane: 0.08
-  focalLengthMilliMeters: 5.5
-  pixelSizeInMicroMeters: 3.45
+  ImageWidth: 1920
+  ImageHeight: 1080
+  Data: 
 --- !u!114 &5151775718962511214
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1362,6 +1452,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UpdateFrequency: 10
   address: marus_boat/camera_starboard
+  MessageQueueSize: 10000
 --- !u!114 &5151775718962511215
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1396,6 +1487,7 @@ GameObject:
   - component: {fileID: 3638691487595878946}
   - component: {fileID: 5151775719215806988}
   - component: {fileID: 7547783837108099281}
+  - component: {fileID: 40290992440182186}
   m_Layer: 0
   m_Name: marus_boat
   m_TagString: Vehicle
@@ -1503,7 +1595,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   linSpeed: 2
-  rotSpeed: 700
+  rotSpeed: 5
   vehId: veh
   thrusterController: {fileID: 5151775718599147163}
 --- !u!114 &7547783837108099281
@@ -1519,6 +1611,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   callbackName: UpdateVehicle
+--- !u!114 &40290992440182186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5151775719215806989}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7919acd7780fdd53197cda48f9a63be6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  linSpeed: 2
+  rotSpeed: 20
 --- !u!1 &5151775719277042614
 GameObject:
   m_ObjectHideFlags: 0
@@ -1737,17 +1843,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/camera_bow_frame
   SampleFrequency: 10
-  streamInFixedUpdate: 0
-  SampleCameraImage: {fileID: 0}
-  cameraShader: {fileID: 7200000, guid: 9ab2f2960ead89444accf9351485eb81, type: 3}
-  ImageCrop: 4
-  SynchronousUpdate: 0
-  PixelWidth: 1280
-  PixelHeight: 720
-  FarPlane: 10000
-  NearPlane: 0.08
-  focalLengthMilliMeters: 5.5
-  pixelSizeInMicroMeters: 3.45
+  ImageWidth: 1920
+  ImageHeight: 1080
+  Data: 
 --- !u!114 &5151775719277042611
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1762,6 +1860,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UpdateFrequency: 10
   address: marus_boat/camera_bow
+  MessageQueueSize: 10000
 --- !u!114 &5151775719277042608
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1999,17 +2098,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/camera_port_frame
   SampleFrequency: 10
-  streamInFixedUpdate: 0
-  SampleCameraImage: {fileID: 0}
-  cameraShader: {fileID: 7200000, guid: 9ab2f2960ead89444accf9351485eb81, type: 3}
-  ImageCrop: 4
-  SynchronousUpdate: 0
-  PixelWidth: 1280
-  PixelHeight: 720
-  FarPlane: 10000
-  NearPlane: 0.08
-  focalLengthMilliMeters: 5.5
-  pixelSizeInMicroMeters: 3.45
+  ImageWidth: 1920
+  ImageHeight: 1080
+  Data: 
 --- !u!114 &5151775719288335791
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2024,6 +2115,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UpdateFrequency: 10
   address: marus_boat/camera_port
+  MessageQueueSize: 10000
 --- !u!114 &5151775719288335789
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2091,7 +2183,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/gps_frame
   SampleFrequency: 10
-  streamInFixedUpdate: 0
   measurementNoise:
     ParameterKeys: []
     ParameterValues: []
@@ -2120,6 +2211,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UpdateFrequency: 10
   address: marus_boat/gps
+  MessageQueueSize: 10000
 --- !u!114 &5151775720007779569
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2268,7 +2360,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameId: marus_boat/imu_frame
   SampleFrequency: 100
-  streamInFixedUpdate: 1
   withGravity: 1
   debug: 0
   AccelerometerNoise:
@@ -2302,6 +2393,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UpdateFrequency: 100
   address: marus_boat/imu
+  MessageQueueSize: 10000
 --- !u!114 &5151775720091282997
 MonoBehaviour:
   m_ObjectHideFlags: 0
