@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 262.3369, g: 325.0498, b: 430.21924, a: 1}
+  m_IndirectSpecularColor: {r: 262.36157, g: 325.07837, b: 430.26364, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -305,8 +305,71 @@ PrefabInstance:
       propertyPath: UpdateFrequency
       value: 15
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 5151775718573208650, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
+    - {fileID: 5151775720178495046, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
+    - {fileID: 5151775720013432416, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
+--- !u!1 &53501922 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5151775720013432417, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
+  m_PrefabInstance: {fileID: 53501921}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &53501923 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5151775720178495044, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
+  m_PrefabInstance: {fileID: 53501921}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &53501924 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5151775718573208648, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
+  m_PrefabInstance: {fileID: 53501921}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &53501925
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 53501922}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18012c9d42f74b232875646268a9808d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lastForceRequest: 0
+  timeSinceForceRequest: 0
+  selectedThruster: {fileID: 11400000, guid: 77d3d01a7e8081f90871019ffde44987, type: 2}
+--- !u!114 &53501926
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 53501923}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18012c9d42f74b232875646268a9808d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lastForceRequest: 0
+  timeSinceForceRequest: 0
+  selectedThruster: {fileID: 11400000, guid: 77d3d01a7e8081f90871019ffde44987, type: 2}
+--- !u!114 &53501927
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 53501924}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18012c9d42f74b232875646268a9808d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lastForceRequest: 0
+  timeSinceForceRequest: 0
+  selectedThruster: {fileID: 11400000, guid: 77d3d01a7e8081f90871019ffde44987, type: 2}
 --- !u!1 &68245346
 GameObject:
   m_ObjectHideFlags: 0
@@ -514,10 +577,6 @@ MonoBehaviour:
   _featherWaveStart: 0.1
   _maxVerticalDisplacement: 10
   _maxHorizontalDisplacement: 15
-  _enableBakedCollision: 0
-  _timeResolution: 4
-  _smallestWavelengthRequired: 2
-  _timeLoopLength: 32
 --- !u!1 &578881876
 GameObject:
   m_ObjectHideFlags: 0
@@ -567,7 +626,6 @@ MonoBehaviour:
   _globalWindSpeed: 10
   _viewpoint: {fileID: 1743095743}
   _camera: {fileID: 0}
-  _teleportThreshold: 10
   _timeProvider: {fileID: 0}
   _primaryLight: {fileID: 1604674993}
   _searchForPrimaryLightOnStartup: 1
@@ -575,13 +633,13 @@ MonoBehaviour:
   _layerName: 
   _layer: 4
   _gravityMultiplier: 1
-  _waterBodyCulling: 1
   _minScale: 8
   _maxScale: 256
   _dropDetailHeightBasedOnWaves: 0.2
   _lodDataResolution: 384
   _geometryDownSampleFactor: 2
   _lodCount: 7
+  _underwaterCullLimit: 0.001
   _renderingLayerMask: 255
   _simSettingsAnimatedWaves: {fileID: 0}
   _createSeaFloorDepthData: 1
@@ -597,14 +655,9 @@ MonoBehaviour:
   _createClipSurfaceData: 0
   _simSettingsClipSurface: {fileID: 0}
   _defaultClippingState: 0
-  _createAlbedoData: 0
-  _settingsAlbedo: {fileID: 0}
-  _surfaceSelfIntersectionFixMode: 2
-  _underwaterCullLimit: 0.001
   _showOceanProxyPlane: 0
   _editModeFPS: 30
   _followSceneCamera: 1
-  _heightQueries: 1
   _forceBatchMode: 0
   _forceNoGPU: 0
   _attachDebugGUI: 0
@@ -741,6 +794,53 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 23c1ce4fb46143f46bc5cb5224c934f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  m_Version: 8
+  m_ObsoleteRenderingPath: 0
+  m_ObsoleteFrameSettings:
+    overrides: 0
+    enableShadow: 0
+    enableContactShadows: 0
+    enableShadowMask: 0
+    enableSSR: 0
+    enableSSAO: 0
+    enableSubsurfaceScattering: 0
+    enableTransmission: 0
+    enableAtmosphericScattering: 0
+    enableVolumetrics: 0
+    enableReprojectionForVolumetrics: 0
+    enableLightLayers: 0
+    enableExposureControl: 1
+    diffuseGlobalDimmer: 0
+    specularGlobalDimmer: 0
+    shaderLitMode: 0
+    enableDepthPrepassWithDeferredRendering: 0
+    enableTransparentPrepass: 0
+    enableMotionVectors: 0
+    enableObjectMotionVectors: 0
+    enableDecals: 0
+    enableRoughRefraction: 0
+    enableTransparentPostpass: 0
+    enableDistortion: 0
+    enablePostprocess: 0
+    enableOpaqueObjects: 0
+    enableTransparentObjects: 0
+    enableRealtimePlanarReflection: 0
+    enableMSAA: 0
+    enableAsyncCompute: 0
+    runLightListAsync: 0
+    runSSRAsync: 0
+    runSSAOAsync: 0
+    runContactShadowsAsync: 0
+    runVolumeVoxelizationAsync: 0
+    lightLoopSettings:
+      overrides: 0
+      enableDeferredTileAndCluster: 0
+      enableComputeLightEvaluation: 0
+      enableComputeLightVariants: 0
+      enableComputeMaterialVariants: 0
+      enableFptlForForwardOpaque: 0
+      enableBigTilePrepass: 0
+      isFptlEnabled: 0
   clearColorMode: 0
   backgroundColorHDR: {r: 0.025, g: 0.07, b: 0.19, a: 0}
   clearDepth: 1
@@ -806,53 +906,6 @@ MonoBehaviour:
       data1: 0
       data2: 0
   defaultFrameSettings: 0
-  m_Version: 8
-  m_ObsoleteRenderingPath: 0
-  m_ObsoleteFrameSettings:
-    overrides: 0
-    enableShadow: 0
-    enableContactShadows: 0
-    enableShadowMask: 0
-    enableSSR: 0
-    enableSSAO: 0
-    enableSubsurfaceScattering: 0
-    enableTransmission: 0
-    enableAtmosphericScattering: 0
-    enableVolumetrics: 0
-    enableReprojectionForVolumetrics: 0
-    enableLightLayers: 0
-    enableExposureControl: 1
-    diffuseGlobalDimmer: 0
-    specularGlobalDimmer: 0
-    shaderLitMode: 0
-    enableDepthPrepassWithDeferredRendering: 0
-    enableTransparentPrepass: 0
-    enableMotionVectors: 0
-    enableObjectMotionVectors: 0
-    enableDecals: 0
-    enableRoughRefraction: 0
-    enableTransparentPostpass: 0
-    enableDistortion: 0
-    enablePostprocess: 0
-    enableOpaqueObjects: 0
-    enableTransparentObjects: 0
-    enableRealtimePlanarReflection: 0
-    enableMSAA: 0
-    enableAsyncCompute: 0
-    runLightListAsync: 0
-    runSSRAsync: 0
-    runSSAOAsync: 0
-    runContactShadowsAsync: 0
-    runVolumeVoxelizationAsync: 0
-    lightLoopSettings:
-      overrides: 0
-      enableDeferredTileAndCluster: 0
-      enableComputeLightEvaluation: 0
-      enableComputeLightVariants: 0
-      enableComputeMaterialVariants: 0
-      enableFptlForForwardOpaque: 0
-      enableBigTilePrepass: 0
-      isFptlEnabled: 0
 --- !u!81 &1428979325
 AudioListener:
   m_ObjectHideFlags: 0
@@ -1104,6 +1157,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a68c43fe1f2a47cfa234b5eeaa98012, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  m_Version: 11
+  m_ObsoleteShadowResolutionTier: 1
+  m_ObsoleteUseShadowQualitySettings: 0
+  m_ObsoleteCustomShadowResolution: 512
+  m_ObsoleteContactShadows: 0
+  m_PointlightHDType: 0
+  m_SpotLightShape: 0
+  m_AreaLightShape: 0
   m_Intensity: 25686.723
   m_EnableSpotReflector: 1
   m_LuxAtDistance: 1
@@ -1206,14 +1267,6 @@ MonoBehaviour:
   m_AreaLightEmissiveMeshShadowCastingMode: 0
   m_AreaLightEmissiveMeshMotionVectorGenerationMode: 0
   m_AreaLightEmissiveMeshLayer: -1
-  m_Version: 11
-  m_ObsoleteShadowResolutionTier: 1
-  m_ObsoleteUseShadowQualitySettings: 0
-  m_ObsoleteCustomShadowResolution: 512
-  m_ObsoleteContactShadows: 0
-  m_PointlightHDType: 0
-  m_SpotLightShape: 0
-  m_AreaLightShape: 0
 --- !u!4 &1743095743 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5151775719288335777, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
