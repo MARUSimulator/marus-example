@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 262.36157, g: 325.07837, b: 430.26364, a: 1}
+  m_IndirectSpecularColor: {r: 262.3369, g: 325.0498, b: 430.2192, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -201,6 +201,18 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 5151775718599147163, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
+      propertyPath: thrusters.Array.data[0]
+      value: 
+      objectReference: {fileID: 53501927}
+    - target: {fileID: 5151775718599147163, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
+      propertyPath: thrusters.Array.data[1]
+      value: 
+      objectReference: {fileID: 53501926}
+    - target: {fileID: 5151775718599147163, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
+      propertyPath: thrusters.Array.data[2]
+      value: 
+      objectReference: {fileID: 53501925}
     - target: {fileID: 5151775718661174648, guid: fbfcabbaad97fef468d9af5e04e1a4c5, type: 3}
       propertyPath: m_IsActive
       value: 0
@@ -337,9 +349,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18012c9d42f74b232875646268a9808d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lastForceRequest: 0
-  timeSinceForceRequest: 0
-  selectedThruster: {fileID: 11400000, guid: 77d3d01a7e8081f90871019ffde44987, type: 2}
+  LastForceRequest: 0
+  TimeSinceForceRequest: 0
+  ThrusterAsset: {fileID: 11400000, guid: 77d3d01a7e8081f90871019ffde44987, type: 2}
 --- !u!114 &53501926
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -352,9 +364,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18012c9d42f74b232875646268a9808d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lastForceRequest: 0
-  timeSinceForceRequest: 0
-  selectedThruster: {fileID: 11400000, guid: 77d3d01a7e8081f90871019ffde44987, type: 2}
+  LastForceRequest: 0
+  TimeSinceForceRequest: 0
+  ThrusterAsset: {fileID: 11400000, guid: 77d3d01a7e8081f90871019ffde44987, type: 2}
 --- !u!114 &53501927
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -367,9 +379,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18012c9d42f74b232875646268a9808d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lastForceRequest: 0
-  timeSinceForceRequest: 0
-  selectedThruster: {fileID: 11400000, guid: 77d3d01a7e8081f90871019ffde44987, type: 2}
+  LastForceRequest: 0
+  TimeSinceForceRequest: 0
+  ThrusterAsset: {fileID: 11400000, guid: 77d3d01a7e8081f90871019ffde44987, type: 2}
 --- !u!1 &68245346
 GameObject:
   m_ObjectHideFlags: 0
@@ -558,25 +570,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a57126133720c243a7af00a156c9ee8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _version: 0
-  _windTurbulence: 0.145
   _spectrum: {fileID: 11400000, guid: 454d1b08383f089479cf6794620926f4, type: 2}
   _spectrumFixedAtRuntime: 1
   _waveDirectionHeadingAngle: 0
   _overrideGlobalWindSpeed: 0
   _windSpeed: 20
-  _weight: 1
   _respectShallowWaterAttenuation: 1
-  _componentsPerOctave: 8
-  _randomSeed: 0
+  _weight: 1
+  _blendMode: 0
+  _queue: 0
   _resolution: 32
   _debugDrawSlicesInEditor: 0
   _overrideSplineSettings: 0
   _radius: 50
   _subdivisions: 1
   _featherWaveStart: 0.1
+  _version: 0
+  _windTurbulence: 0.145
   _maxVerticalDisplacement: 10
   _maxHorizontalDisplacement: 15
+  _enableBakedCollision: 0
+  _timeResolution: 4
+  _smallestWavelengthRequired: 2
+  _timeLoopLength: 32
 --- !u!1 &578881876
 GameObject:
   m_ObjectHideFlags: 0
@@ -626,20 +642,23 @@ MonoBehaviour:
   _globalWindSpeed: 10
   _viewpoint: {fileID: 1743095743}
   _camera: {fileID: 0}
+  _teleportThreshold: 10
   _timeProvider: {fileID: 0}
   _primaryLight: {fileID: 1604674993}
   _searchForPrimaryLightOnStartup: 1
   _material: {fileID: 2100000, guid: bdd8429a1c1555949a66a1e6556cd23c, type: 2}
+  _waterTilePrefab: {fileID: 0}
   _layerName: 
   _layer: 4
   _gravityMultiplier: 1
+  _waterBodyCulling: 1
   _minScale: 8
   _maxScale: 256
   _dropDetailHeightBasedOnWaves: 0.2
   _lodDataResolution: 384
   _geometryDownSampleFactor: 2
   _lodCount: 7
-  _underwaterCullLimit: 0.001
+  _extentsSizeMultiplier: 100
   _renderingLayerMask: 255
   _simSettingsAnimatedWaves: {fileID: 0}
   _createSeaFloorDepthData: 1
@@ -655,9 +674,14 @@ MonoBehaviour:
   _createClipSurfaceData: 0
   _simSettingsClipSurface: {fileID: 0}
   _defaultClippingState: 0
+  _createAlbedoData: 0
+  _settingsAlbedo: {fileID: 0}
+  _surfaceSelfIntersectionFixMode: 2
+  _underwaterCullLimit: 0.001
   _showOceanProxyPlane: 0
   _editModeFPS: 30
   _followSceneCamera: 1
+  _heightQueries: 1
   _forceBatchMode: 0
   _forceNoGPU: 0
   _attachDebugGUI: 0
@@ -859,6 +883,7 @@ MonoBehaviour:
   taaMotionVectorRejection: 0
   taaAntiHistoryRinging: 0
   taaBaseBlendFactor: 0.875
+  taaJitterScale: 1
   physicalParameters:
     m_Iso: 200
     m_ShutterSpeed: 0.005
