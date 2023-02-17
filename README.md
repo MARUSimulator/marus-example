@@ -26,7 +26,7 @@ Make sure you have git-lfs installed on your system.
 `git submodule update --init --recursive`
 
 ## Documentation
-* [API Documentation]()
+* [API Documentation](https://marusimulator.github.io/marus-api-documentation/api/index.html)
 
 ## Credits & Acknowledgements
 
