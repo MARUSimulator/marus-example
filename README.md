@@ -25,6 +25,9 @@ Make sure you have git-lfs installed on your system.
 * After cloning, run following command to pull [marus-core](https://github.com/MARUSimulator/marus-core) submodule:
 `git submodule update --init --recursive`
 
+* Switch to branch unity6
+`git switch unity6`
+
 ## Documentation
 * [API Documentation](https://marusimulator.github.io/marus-api-documentation/api/index.html)
 
