@@ -15,9 +15,10 @@ public class RovPilotController : MonoBehaviour
     public float forceHeave = 58f;
     public float torqueYaw = 11f;
 
-    [Header("Hydrodynamics")]
-    public float linearDrag = 60f;
-    public float quadraticDrag = 70f;
+    [Header("Hydrodynamics (anisotropic body-frame drag)")]
+    public float dragSurgeLin = 30f, dragSurgeQuad = 40f;
+    public float dragSwayLin = 120f, dragSwayQuad = 160f;
+    public float dragHeaveLin = 120f, dragHeaveQuad = 160f;
     public float angularDrag = 26f;
     public float attitudeGain = 34f;
 
@@ -49,7 +50,10 @@ public class RovPilotController : MonoBehaviour
     private RovDynamics.Params P => new RovDynamics.Params
     {
         forceSurge = forceSurge, forceSway = forceSway, forceHeave = forceHeave, torqueYaw = torqueYaw,
-        linearDrag = linearDrag, quadraticDrag = quadraticDrag, angularDrag = angularDrag, attitudeGain = attitudeGain
+        dragSurgeLin = dragSurgeLin, dragSurgeQuad = dragSurgeQuad,
+        dragSwayLin = dragSwayLin, dragSwayQuad = dragSwayQuad,
+        dragHeaveLin = dragHeaveLin, dragHeaveQuad = dragHeaveQuad,
+        angularDrag = angularDrag, attitudeGain = attitudeGain
     };
 
     private void Start()

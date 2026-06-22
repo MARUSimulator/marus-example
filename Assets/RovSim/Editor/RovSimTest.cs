@@ -10,8 +10,7 @@ using UnityEngine;
 // Headless ROV sim test + full logging system.
 // Drives deterministic scripted command scenarios through the SAME RovDynamics the player uses,
 // steps real MuJoCo physics, writes a full per-step telemetry CSV per scenario, and asserts
-// real physics oracles (surge->forward, yaw->heading, heave->depth, coast->decelerate,
-// non-teleport continuity, attitude stability). Exit code 0 iff all oracles pass.
+// real physics oracles. Exit code 0 iff all oracles pass.
 public static class RovSimTest
 {
     private const string Mjcf = "/mnt/storage/marus-rov-sim/staging/rov_v1.xml";
@@ -21,6 +20,13 @@ public static class RovSimTest
     private const float Dt = 0.005f;
 
     private struct Phase { public string name; public float dur; public float su, sw, hv, yw; }
+
+    private class Res
+    {
+        public Vector3 disp;
+        public float fwdComp, lateralComp, dHeading, dDepth, startSpeed, endSpeed, maxTilt, maxStepDelta, maxSpeed;
+        public bool anyNaN;
+    }
 
     public static void RunHeadless()
     {
@@ -43,16 +49,23 @@ public static class RovSimTest
         var p = RovDynamics.Params.Default;
         var phases = new[]
         {
-            new Phase { name = "idle",      dur = 1f, su = 0,  sw = 0, hv = 0,  yw = 0 },
-            new Phase { name = "surge",     dur = 3f, su = 1,  sw = 0, hv = 0,  yw = 0 },
-            new Phase { name = "coast",     dur = 2f, su = 0,  sw = 0, hv = 0,  yw = 0 },
-            new Phase { name = "yaw",       dur = 3f, su = 0,  sw = 0, hv = 0,  yw = 1 },
-            new Phase { name = "heave_dn",  dur = 2f, su = 0,  sw = 0, hv = -1, yw = 0 },
-            new Phase { name = "settle",    dur = 1f, su = 0,  sw = 0, hv = 0,  yw = 0 },
+            new Phase { name = "idle",     dur = 1f, su = 0,  sw = 0,  hv = 0,  yw = 0 },
+            new Phase { name = "surge",    dur = 3f, su = 1,  sw = 0,  hv = 0,  yw = 0 },
+            new Phase { name = "coast",    dur = 2f, su = 0,  sw = 0,  hv = 0,  yw = 0 },
+            new Phase { name = "reverse",  dur = 3f, su = -1, sw = 0,  hv = 0,  yw = 0 },
+            new Phase { name = "coast2",   dur = 2f, su = 0,  sw = 0,  hv = 0,  yw = 0 },
+            new Phase { name = "sway",     dur = 3f, su = 0,  sw = 1,  hv = 0,  yw = 0 },
+            new Phase { name = "coast3",   dur = 2f, su = 0,  sw = 0,  hv = 0,  yw = 0 },
+            new Phase { name = "heave_dn", dur = 2f, su = 0,  sw = 0,  hv = -1, yw = 0 },
+            new Phase { name = "heave_up", dur = 2f, su = 0,  sw = 0,  hv = 1,  yw = 0 },
+            new Phase { name = "coast4",   dur = 2f, su = 0,  sw = 0,  hv = 0,  yw = 0 },
+            new Phase { name = "yaw",      dur = 3f, su = 0,  sw = 0,  hv = 0,  yw = 1 },
+            new Phase { name = "surgeyaw", dur = 3f, su = 1,  sw = 0,  hv = 0,  yw = 1 },
+            new Phase { name = "settle",   dur = 1f, su = 0,  sw = 0,  hv = 0,  yw = 0 },
         };
 
-        var oracles = new List<(string name, bool pass, string detail)>();
-        float globalMaxStepDelta = 0f, globalMaxTilt = 0f;
+        var R = new Dictionary<string, Res>();
+        float gMaxStep = 0f, gMaxTilt = 0f, gMaxSpeed = 0f; bool gNaN = false;
         var summary = new StringBuilder();
         summary.AppendLine("# RovSim headless test — " + DateTime.UtcNow.ToString("o"));
         summary.AppendLine($"scene nq={nq} nv={nv} dt={Dt}");
@@ -65,11 +78,11 @@ public static class RovSimTest
             csv.WriteLine("step,sim_time,pos_x,pos_y,pos_z,depth_m,heading_deg,pitch_deg,roll_deg," +
                           "vel_x,vel_y,vel_z,speed_mps,vspeed_mps,cmd_su,cmd_sw,cmd_hv,cmd_yw,fx,fy,fz,tx,ty,tz");
 
+            var r = new Res();
             Vector3 startPos = ReadVec(scene.Data->xpos, BaseBodyId);
-            Vector3 startFwd = Frame(scene, out _, out _);
-            float startHeading = Heading(scene), startSpeed = Speed(scene), startDepth = -startPos.z;
-            float maxTilt = 0f, maxStepDelta = 0f; Vector3 prev = startPos;
-            float headingAccum = 0f, lastHeading = startHeading;
+            Vector3 startFwd = Frame(scene, out Vector3 startStbd, out _);
+            float startHeading = Heading(scene); r.startSpeed = Speed(scene);
+            float startDepth = -startPos.z; float lastHeading = startHeading; Vector3 prev = startPos;
 
             for (int s = 0; s < steps; s++)
             {
@@ -86,11 +99,12 @@ public static class RovSimTest
 
                 Vector3 pos = ReadVec(scene.Data->xpos, BaseBodyId);
                 float depth = -pos.z, heading = Heading(scene), speed = Speed(scene);
-                float pitch, roll; Attitude(scene, out pitch, out roll);
-                float tilt = Mathf.Max(Mathf.Abs(pitch), Mathf.Abs(roll));
-                maxTilt = Mathf.Max(maxTilt, tilt);
-                float stepDelta = (pos - prev).magnitude; maxStepDelta = Mathf.Max(maxStepDelta, stepDelta); prev = pos;
-                float dh = Mathf.DeltaAngle(lastHeading, heading); headingAccum += dh; lastHeading = heading;
+                Attitude(scene, out float pitch, out float roll);
+                if (Bad(pos) || Bad(lin) || float.IsNaN(speed)) { r.anyNaN = true; gNaN = true; }
+                r.maxTilt = Mathf.Max(r.maxTilt, Mathf.Max(Mathf.Abs(pitch), Mathf.Abs(roll)));
+                r.maxSpeed = Mathf.Max(r.maxSpeed, speed);
+                float sd = (pos - prev).magnitude; r.maxStepDelta = Mathf.Max(r.maxStepDelta, sd); prev = pos;
+                r.dHeading += Mathf.DeltaAngle(lastHeading, heading); lastHeading = heading;
 
                 var c = CultureInfo.InvariantCulture;
                 csv.WriteLine(string.Join(",", new[] {
@@ -98,7 +112,7 @@ public static class RovSimTest
                     pos.x.ToString("F4", c), pos.y.ToString("F4", c), pos.z.ToString("F4", c),
                     depth.ToString("F4", c), heading.ToString("F2", c), pitch.ToString("F2", c), roll.ToString("F2", c),
                     lin.x.ToString("F4", c), lin.y.ToString("F4", c), lin.z.ToString("F4", c),
-                    speed.ToString("F4", c), (lin.z).ToString("F4", c),
+                    speed.ToString("F4", c), lin.z.ToString("F4", c),
                     ph.su.ToString("F1", c), ph.sw.ToString("F1", c), ph.hv.ToString("F1", c), ph.yw.ToString("F1", c),
                     force.x.ToString("F2", c), force.y.ToString("F2", c), force.z.ToString("F2", c),
                     torque.x.ToString("F2", c), torque.y.ToString("F2", c), torque.z.ToString("F2", c)
@@ -107,52 +121,52 @@ public static class RovSimTest
             csv.Flush(); csv.Close();
 
             Vector3 endPos = ReadVec(scene.Data->xpos, BaseBodyId);
-            Vector3 disp = endPos - startPos;
-            float fwdComp = Vector3.Dot(disp, startFwd);
-            float endSpeed = Speed(scene), endDepth = -endPos.z;
-            globalMaxStepDelta = Mathf.Max(globalMaxStepDelta, maxStepDelta);
-            globalMaxTilt = Mathf.Max(globalMaxTilt, maxTilt);
-
-            summary.AppendLine($"[{ph.name}] cmd=({ph.su},{ph.sw},{ph.hv},{ph.yw}) disp={disp.magnitude:F3}m fwdComp={fwdComp:F3}m " +
-                               $"dHeading={headingAccum:F1}deg dDepth={(endDepth - startDepth):F3}m startSpd={startSpeed:F3} endSpd={endSpeed:F3} maxTilt={maxTilt:F1}deg maxStep={maxStepDelta:F4}m");
-
-            if (ph.name == "surge")
-            {
-                bool ok = fwdComp > 0.3f && fwdComp > 0.7f * disp.magnitude;
-                oracles.Add(("surge_forward", ok, $"fwdComp={fwdComp:F3}m (need >0.3 & aligned)"));
-            }
-            else if (ph.name == "coast")
-            {
-                bool ok = endSpeed < startSpeed - 0.02f;
-                oracles.Add(("coast_decelerates", ok, $"{startSpeed:F3}->{endSpeed:F3} m/s (drag)"));
-            }
-            else if (ph.name == "yaw")
-            {
-                bool ok = Mathf.Abs(headingAccum) > 15f;
-                oracles.Add(("yaw_turns", ok, $"dHeading={headingAccum:F1}deg (need >15)"));
-            }
-            else if (ph.name == "heave_dn")
-            {
-                bool ok = (endDepth - startDepth) > 0.2f;
-                oracles.Add(("heave_descends", ok, $"dDepth={(endDepth - startDepth):F3}m (need >0.2)"));
-            }
+            r.disp = endPos - startPos;
+            r.fwdComp = Vector3.Dot(r.disp, startFwd);
+            r.lateralComp = (r.disp - r.fwdComp * startFwd).magnitude;
+            r.endSpeed = Speed(scene); r.dDepth = (-endPos.z) - startDepth;
+            R[ph.name] = r;
+            gMaxStep = Mathf.Max(gMaxStep, r.maxStepDelta); gMaxTilt = Mathf.Max(gMaxTilt, r.maxTilt);
+            gMaxSpeed = Mathf.Max(gMaxSpeed, r.maxSpeed);
+            summary.AppendLine($"[{ph.name}] cmd=({ph.su},{ph.sw},{ph.hv},{ph.yw}) disp={r.disp.magnitude:F3} fwd={r.fwdComp:F3} lat={r.lateralComp:F3} " +
+                               $"dHead={r.dHeading:F1} dDepth={r.dDepth:F3} spd {r.startSpeed:F3}->{r.endSpeed:F3} maxTilt={r.maxTilt:F2} maxStep={r.maxStepDelta:F4}");
         }
 
-        oracles.Add(("non_teleport", globalMaxStepDelta < 0.1f, $"maxStepDelta={globalMaxStepDelta:F4}m (need <0.1; teleport would jump)"));
-        oracles.Add(("attitude_stable", globalMaxTilt < 25f, $"maxTilt={globalMaxTilt:F1}deg (need <25; self-righting)"));
+        var oracles = new List<(string, bool, string)>();
+        void O(string n, bool pass, string d) => oracles.Add((n, pass, d));
+
+        O("idle_stationary", R["idle"].disp.magnitude < 1e-3f, $"disp={R["idle"].disp.magnitude:F5}m (rest, deterministic)");
+        O("surge_forward", R["surge"].fwdComp > 0.3f && R["surge"].fwdComp > 0.7f * R["surge"].disp.magnitude, $"fwd={R["surge"].fwdComp:F3}m");
+        O("reverse_backward", R["reverse"].fwdComp < -0.3f, $"fwd={R["reverse"].fwdComp:F3}m (backwards)");
+        O("sway_lateral", R["sway"].lateralComp > 0.15f, $"lat={R["sway"].lateralComp:F3}m");
+        O("coast_decelerates", R["coast"].endSpeed < R["coast"].startSpeed - 0.02f, $"{R["coast"].startSpeed:F3}->{R["coast"].endSpeed:F3} m/s");
+        O("heave_descends", R["heave_dn"].dDepth > 0.2f, $"dDepth={R["heave_dn"].dDepth:F3}m");
+        O("heave_ascends", R["heave_up"].dDepth < -0.2f, $"dDepth={R["heave_up"].dDepth:F3}m");
+        O("yaw_turns", Mathf.Abs(R["yaw"].dHeading) > 15f, $"dHead={R["yaw"].dHeading:F1}deg");
+        O("surgeyaw_curves", Mathf.Abs(R["surgeyaw"].dHeading) > 15f && R["surgeyaw"].lateralComp > 0.1f,
+            $"dHead={R["surgeyaw"].dHeading:F1}deg lat={R["surgeyaw"].lateralComp:F3}m (surge follows heading => curved)");
+        // anisotropy: forward is the least-damped axis -> highest terminal speed
+        float vSurge = R["surge"].endSpeed, vSway = R["sway"].endSpeed, vHeave = R["heave_dn"].endSpeed;
+        O("anisotropy_surge_fastest", vSurge > vSway + 0.1f && vSurge > vHeave + 0.1f,
+            $"terminal surge={vSurge:F3} > sway={vSway:F3}, heave={vHeave:F3} m/s (ROV-like)");
+        O("cross_coupling_low", R["surge"].lateralComp < 0.05f * Mathf.Max(R["surge"].disp.magnitude, 1e-3f) && R["surge"].maxTilt < 2f,
+            $"surge lat={R["surge"].lateralComp:F4}m tilt={R["surge"].maxTilt:F2}deg");
+        O("non_teleport", gMaxStep < 0.1f, $"maxStep={gMaxStep:F4}m (<0.1; teleport would jump)");
+        O("attitude_stable", gMaxTilt < 25f, $"maxTilt={gMaxTilt:F2}deg");
+        O("no_nan_bounded", !gNaN && gMaxSpeed < 5f, $"nan={gNaN} maxSpeed={gMaxSpeed:F3} m/s");
 
         bool all = true;
         summary.AppendLine("\n# ORACLES");
-        foreach (var o in oracles)
+        foreach (var (n, pass, d) in oracles)
         {
-            all &= o.pass;
-            string line = $"  [{(o.pass ? "PASS" : "FAIL")}] {o.name}: {o.detail}";
-            summary.AppendLine(line);
-            Debug.Log("ROVTEST_ORACLE " + (o.pass ? "PASS" : "FAIL") + " " + o.name + " :: " + o.detail);
+            all &= pass;
+            summary.AppendLine($"  [{(pass ? "PASS" : "FAIL")}] {n}: {d}");
+            Debug.Log("ROVTEST_ORACLE " + (pass ? "PASS" : "FAIL") + " " + n + " :: " + d);
         }
-        summary.AppendLine($"\nRESULT {(all ? "ALL_PASS" : "FAIL")}  ({oracles.FindAll(o => o.pass).Count}/{oracles.Count})");
+        int np = oracles.FindAll(o => o.Item2).Count;
+        summary.AppendLine($"\nRESULT {(all ? "ALL_PASS" : "FAIL")}  ({np}/{oracles.Count})");
         File.WriteAllText(Path.Combine(LogDir, "test_summary.txt"), summary.ToString());
-        Debug.Log("ROVTEST_RESULT " + (all ? "ALL_PASS" : "FAIL") + " " + oracles.FindAll(o => o.pass).Count + "/" + oracles.Count);
+        Debug.Log("ROVTEST_RESULT " + (all ? "ALL_PASS" : "FAIL") + " " + np + "/" + oracles.Count);
 
         scene.DestroyScene();
         UnityEngine.Object.DestroyImmediate(scene.gameObject);
@@ -160,11 +174,10 @@ public static class RovSimTest
         return all;
     }
 
+    private static bool Bad(Vector3 v) => float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z) || float.IsInfinity(v.x);
+
     private static unsafe Vector3 ReadVec(double* arr, int bodyId)
-    {
-        double* a = arr + bodyId * 3;
-        return new Vector3((float)a[0], (float)a[1], (float)a[2]);
-    }
+    { double* a = arr + bodyId * 3; return new Vector3((float)a[0], (float)a[1], (float)a[2]); }
 
     private static unsafe Vector3 ReadVel(MjScene scene, int o)
     {
