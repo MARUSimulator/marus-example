@@ -1,0 +1,35 @@
+<mujoco model="rov_v1">
+  <!-- v1 vehicle-only ROV/AUV (no manipulator arm). Driven by xfrc_applied on base_link.
+       Neutral-buoyancy approximated by zero gravity (teaching v1); hydro drag is applied by the controller.
+       MuJoCo is z-up; org.mujoco converts to Unity y-up on import. -->
+  <option gravity="0 0 0" timestep="0.005" integrator="implicitfast"/>
+  <compiler angle="radian"/>
+
+  <default>
+    <geom contype="1" conaffinity="1" friction="0.6 0.05 0.01"/>
+  </default>
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0">
+      <freejoint name="base_free"/>
+      <inertial pos="0 0 0" mass="11.5" diaginertia="0.21 0.245 0.30"/>
+      <!-- main hull -->
+      <geom name="hull" type="box" size="0.230 0.180 0.090" rgba="0.96 0.78 0.16 1"/>
+      <!-- electronics canister / top deck -->
+      <geom name="deck" type="box" pos="0 0 0.105" size="0.180 0.140 0.022" rgba="0.16 0.17 0.19 1"/>
+      <!-- four buoyancy floats (visual scale cue) -->
+      <geom name="float_fl" type="capsule" fromto="0.18 0.14 0.07  -0.18 0.14 0.07" size="0.028" rgba="0.92 0.92 0.92 1"/>
+      <geom name="float_fr" type="capsule" fromto="0.18 -0.14 0.07 -0.18 -0.14 0.07" size="0.028" rgba="0.92 0.92 0.92 1"/>
+      <!-- four horizontal thruster nacelles (X-config, visual) -->
+      <geom name="thr_fl" type="cylinder" fromto="0.20 0.15 0  0.26 0.21 0" size="0.030" rgba="0.10 0.10 0.10 1"/>
+      <geom name="thr_fr" type="cylinder" fromto="0.20 -0.15 0  0.26 -0.21 0" size="0.030" rgba="0.10 0.10 0.10 1"/>
+      <geom name="thr_rl" type="cylinder" fromto="-0.20 0.15 0  -0.26 0.21 0" size="0.030" rgba="0.10 0.10 0.10 1"/>
+      <geom name="thr_rr" type="cylinder" fromto="-0.20 -0.15 0  -0.26 -0.21 0" size="0.030" rgba="0.10 0.10 0.10 1"/>
+      <!-- two vertical thrusters -->
+      <geom name="thr_vl" type="cylinder" fromto="0 0.12 0.04  0 0.12 0.12" size="0.028" rgba="0.10 0.10 0.10 1"/>
+      <geom name="thr_vr" type="cylinder" fromto="0 -0.12 0.04 0 -0.12 0.12" size="0.028" rgba="0.10 0.10 0.10 1"/>
+      <!-- forward camera/light marker -->
+      <geom name="cam" type="box" pos="0.235 0 0.02" size="0.012 0.05 0.03" rgba="0.05 0.05 0.06 1"/>
+    </body>
+  </worldbody>
+</mujoco>

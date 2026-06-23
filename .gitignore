@@ -83,3 +83,8 @@ HDRPDefaultResources/HDRPDefaultSettings.asset.meta
 /Assets/Local/
 /Assets/Local.meta
 /Assets/Resources.meta
+
+# RovSim generated outputs (reproducible via tools/reproduce_demo.sh)
+/Builds/
+/Logs/
+/recframes/

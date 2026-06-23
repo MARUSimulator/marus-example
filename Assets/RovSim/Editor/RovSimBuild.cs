@@ -12,10 +12,16 @@ using UnityEngine.Rendering.HighDefinition;
 // (reusing MARUS's working lighting/sky/water), then optionally builds a standalone Linux player.
 public static class RovSimBuild
 {
-    private const string Mjcf = "/mnt/storage/marus-rov-sim/staging/rov_v1.xml";
+    // repo-relative resolution so the demo reproduces from a clone (falls back to the dev path)
+    private static string RepoFile(string rel)
+    {
+        var p = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", rel));
+        return System.IO.File.Exists(p) ? p : "/mnt/storage/marus-rov-sim/" + rel;
+    }
+    private static string Mjcf => RepoFile("staging/rov_v1.xml");
     private const string BaseScene = "Assets/Scenes/ExampleScene.unity";
     private const string OutScene = "Assets/RovSim/rov_sim_v1.unity";
-    private const string BuildPath = "/mnt/storage/marus-rov-sim/build/rov_sim_v1.x86_64";
+    private static string BuildPath => System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", "Builds", "rov_sim_v1.x86_64"));
 
     public static void BuildScene()
     {
@@ -29,7 +35,8 @@ public static class RovSimBuild
         {
             CreateScene();
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(BuildPath));
-            PlayerSettings.productName = "OceanScale ROV Sim v1";
+            PlayerSettings.productName = "OceanScale ROV Sim";
+            try { PlayerSettings.bundleVersion = System.IO.File.ReadAllText(RepoFile("Assets/RovSim/VERSION")).Trim(); } catch { }
             PlayerSettings.defaultScreenWidth = 1280;
             PlayerSettings.defaultScreenHeight = 720;
             PlayerSettings.fullScreenMode = FullScreenMode.Windowed;

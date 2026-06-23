@@ -13,8 +13,13 @@ using UnityEngine;
 // real physics oracles. Exit code 0 iff all oracles pass.
 public static class RovSimTest
 {
-    private const string Mjcf = "/mnt/storage/marus-rov-sim/staging/rov_v1.xml";
-    private const string LogDir = "/mnt/storage/marus-rov-sim/logs";
+    private static string Mjcf {
+        get {
+            var p = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "staging", "rov_v1.xml"));
+            return File.Exists(p) ? p : "/mnt/storage/marus-rov-sim/staging/rov_v1.xml";
+        }
+    }
+    private static string LogDir => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs"));
     private const int BaseBodyId = 1;
     private const int BaseDofAdr = 0;
     private const float Dt = 0.005f;

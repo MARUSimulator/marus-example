@@ -566,6 +566,8 @@ public class RovPilotController : MonoBehaviour
         if (!logCsv) return;
         try
         {
+            var env = Environment.GetEnvironmentVariable("ROVSIM_CSV");
+            if (!string.IsNullOrEmpty(env)) csvPath = env;
             Directory.CreateDirectory(Path.GetDirectoryName(csvPath));
             _csv = new StreamWriter(csvPath, false);
             _csv.WriteLine("step,sim_time,fps,pos_x,pos_y,pos_z,depth_m,altitude_m,heading_deg,pitch_deg,roll_deg," +
