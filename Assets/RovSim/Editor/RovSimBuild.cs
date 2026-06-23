@@ -70,7 +70,7 @@ public static class RovSimBuild
         settings.DebugFileName = "rov_sim_generated.xml";
 
         // Reuse MARUS's HDRP camera; disable any follow/agent controller on it, then frame the ROV.
-        Camera frontCam = null;
+        Camera frontCam = null; RenderTexture fpvRT = null;
         var cam = Camera.main ?? UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).FirstOrDefault();
         if (cam != null)
         {
@@ -92,21 +92,25 @@ public static class RovSimBuild
             var hdCam = cam.GetComponent<HDAdditionalCameraData>();
             if (hdCam != null) hdCam.antialiasing = HDAdditionalCameraData.AntialiasingMode.TemporalAntialiasing;
 
-            // onboard forward pilot camera (FPV) — full-screen during the onboard-camera tour phase
+            // onboard forward pilot camera (FPV). Renders to a RenderTexture and is ALWAYS enabled — never
+            // toggled (toggling camera.enabled mid-run resets the org.mujoco sim). The controller positions it
+            // at the ROV bow every frame and draws the RT full-screen during the onboard-camera phase.
             var fgo = new GameObject("Pilot Cam");
-            fgo.transform.SetParent(baseT, false);
-            fgo.transform.localPosition = new Vector3(0f, 0.3f, 0.55f);   // bow, slightly up
-            fgo.transform.localRotation = Quaternion.identity;            // along ROV forward
             frontCam = fgo.AddComponent<Camera>();
-            frontCam.fieldOfView = 70f; frontCam.depth = 5f; frontCam.enabled = false;
+            frontCam.fieldOfView = 70f;
+            fpvRT = new RenderTexture(1280, 720, 24) { name = "FPV_RT" }; fpvRT.Create();
+            frontCam.targetTexture = fpvRT;
             if (fgo.GetComponent<HDAdditionalCameraData>() == null) fgo.AddComponent<HDAdditionalCameraData>();
+
+            // (ROV work lights removed: in bright water their cones don't read while the bright sources
+            // bloom into floating orbs. Authentic vehicle light-cones need a dark-water look — deferred.)
         }
 
         AddUnderwater();
         AddWater();
         AddEnvironment();
         // worksite waypoint in MuJoCo world (z up): x,y match the rendered wellhead; z = underwater hold depth
-        if (pilot != null) { pilot.worksite = new Vector3(6.5f, -4.3f, -3.6f); pilot.chaseCamera = cam; pilot.frontCamera = frontCam; SetupPiP(pilot); HideClutter(); }
+        if (pilot != null) { pilot.worksite = new Vector3(6.5f, -4.3f, -3.6f); pilot.chaseCamera = cam; pilot.frontCamera = frontCam; pilot.fpvRT = fpvRT; SetupPiP(pilot); HideClutter(); }
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene, OutScene);
@@ -121,6 +125,13 @@ public static class RovSimBuild
     // small RGB-axis clutter in the scene. Hide them for a clean customer-facing demo.
     private static void HideClutter()
     {
+        // MARUS ExampleScene includes a mountainous island Terrain that extends underwater as dark
+        // peaks the ROV visually clips into. Hide it — our textured low-relief seabed is the ground.
+        foreach (var ter in UnityEngine.Object.FindObjectsByType<Terrain>(FindObjectsSortMode.None))
+            ter.gameObject.SetActive(false);
+        foreach (var go in UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
+            if (go.name.IndexOf("terrain", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                go.name.IndexOf("island", StringComparison.OrdinalIgnoreCase) >= 0) go.SetActive(false);
         foreach (var r in UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
         {
             var n = r.gameObject.name;
@@ -204,22 +215,22 @@ public static class RovSimBuild
         w.caustics = true;
         w.causticsIntensity = 1.0f;
         w.causticsResolution = WaterSurface.WaterCausticsResolution.Caustics512;
-        w.absorptionDistanceMultiplier = 4.5f;          // real depth absorption: surface dims, color shifts with depth; seabed/ROV still readable near
-        w.underWaterScatteringColor = new Color(0.05f, 0.16f, 0.24f); // bluer, less green wash
-        w.underWaterAmbientProbeContribution = 1.0f;
+        w.absorptionDistanceMultiplier = 2.6f;          // turbid: dark water column so the ROV work-light cones read
+        w.underWaterScatteringColor = new Color(0.04f, 0.13f, 0.20f); // deep blue-green
+        w.underWaterAmbientProbeContribution = 0.35f;   // dim ambient -> vehicle lights dominate (authentic ROV footage)
         Debug.Log("WATER_ADDED HDRP native WaterSurface (ocean + underwater + caustics)");
     }
 
     private static void SetupPiP(RovPilotController pilot)
     {
-        var rt = new RenderTexture(256, 144, 16) { name = "PiP_RT" };
+        var rt = new RenderTexture(384, 216, 16) { name = "PiP_RT" };
         rt.Create();
         var go = new GameObject("Inspection Cam");
-        go.transform.position = new Vector3(6.5f, -1.6f, 1.5f);     // above the worksite
-        go.transform.LookAt(new Vector3(6.5f, -4.1f, 1.5f));
+        go.transform.position = new Vector3(8.6f, -2.7f, 3.3f);     // oblique 3/4 view, ~3 m from the wellhead (frames the whole structure, less occlusion)
+        go.transform.LookAt(new Vector3(6.5f, -3.7f, 1.5f));        // wellhead mid-body
         var cam = go.AddComponent<Camera>();
         cam.targetTexture = rt;
-        cam.fieldOfView = 55f;
+        cam.fieldOfView = 50f;
         cam.depth = -5f;
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.02f, 0.12f, 0.16f);
@@ -280,10 +291,10 @@ public static class RovSimBuild
             for (int x = 0; x <= cells; x++)
             {
                 float xf = (x / (float)cells - 0.5f) * size, zf = (z / (float)cells - 0.5f) * size;
-                float h = Mathf.PerlinNoise(xf * 0.09f + 11f, zf * 0.09f + 7f) * 1.4f
-                        + Mathf.PerlinNoise(xf * 0.28f + 3f, zf * 0.28f + 9f) * 0.5f
-                        + Mathf.PerlinNoise(xf * 0.9f, zf * 0.9f) * 0.14f;
-                verts[z * (cells + 1) + x] = new Vector3(xf, floorY + h - 1.0f, zf);
+                float h = Mathf.PerlinNoise(xf * 0.09f + 11f, zf * 0.09f + 7f) * 0.34f
+                        + Mathf.PerlinNoise(xf * 0.28f + 3f, zf * 0.28f + 9f) * 0.12f
+                        + Mathf.PerlinNoise(xf * 0.9f, zf * 0.9f) * 0.04f;          // low relief: peaks stay >=0.5 m below the ROV
+                verts[z * (cells + 1) + x] = new Vector3(xf, floorY - 0.25f + h, zf);
                 uvs[z * (cells + 1) + x] = new Vector2(xf / 2f, zf / 2f);
             }
         int ti = 0;
@@ -382,11 +393,11 @@ public static class RovSimBuild
         var main = ps.main;
         main.startLifetime = 9f;
         main.startSpeed = 0.04f;
-        main.startSize = new ParticleSystem.MinMaxCurve(0.012f, 0.05f);
-        main.maxParticles = 2600;
+        main.startSize = new ParticleSystem.MinMaxCurve(0.01f, 0.03f);     // small -> reads as fine drift, not boxes
+        main.maxParticles = 1500;
         main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.startColor = new Color(0.88f, 0.96f, 1.0f, 0.8f);
-        var em = ps.emission; em.rateOverTime = 300f;
+        main.startColor = new Color(0.88f, 0.96f, 1.0f, 0.5f);
+        var em = ps.emission; em.rateOverTime = 170f;
         var shp = ps.shape; shp.shapeType = ParticleSystemShapeType.Box; shp.scale = new Vector3(16f, 7f, 16f);
         var vel = ps.velocityOverLifetime; vel.enabled = true;
         vel.y = new ParticleSystem.MinMaxCurve(-0.05f, -0.01f);
@@ -395,9 +406,33 @@ public static class RovSimBuild
         if (psh != null)
         {
             var pm = new Material(psh);
-            if (pm.HasProperty("_BaseColor")) pm.SetColor("_BaseColor", new Color(0.9f, 0.97f, 1f, 0.55f));
+            var soft = MakeSoftDot();                       // radial-alpha sprite -> soft round specks, not hard squares
+            pm.SetFloat("_SurfaceType", 1f);                // transparent
+            pm.SetFloat("_BlendMode", 0f);                  // alpha blend
+            pm.SetFloat("_AlphaCutoffEnable", 0f);
+            pm.SetColor("_UnlitColor", new Color(0.9f, 0.97f, 1f, 0.5f));
+            if (pm.HasProperty("_BaseColor")) pm.SetColor("_BaseColor", new Color(0.9f, 0.97f, 1f, 0.5f));
+            pm.SetTexture("_UnlitColorMap", soft);
+            if (pm.HasProperty("_BaseColorMap")) pm.SetTexture("_BaseColorMap", soft);
+            pm.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            pm.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            try { HDMaterial.ValidateMaterial(pm); } catch { }
             rend.sharedMaterial = pm;
         }
+    }
+
+    private static Texture2D MakeSoftDot()
+    {
+        const int N = 64; var t = new Texture2D(N, N, TextureFormat.RGBA32, false);
+        var c = new Vector2(N / 2f, N / 2f);
+        for (int y = 0; y < N; y++)
+            for (int x = 0; x < N; x++)
+            {
+                float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), c) / (N / 2f);
+                float a = Mathf.Clamp01(1f - d); a *= a;
+                t.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+            }
+        t.Apply(); return t;
     }
 
     private static void SwapInFuelRov(GameObject rov)

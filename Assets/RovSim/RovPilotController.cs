@@ -19,8 +19,10 @@ public class RovPilotController : MonoBehaviour
     public float dragSurgeLin = 30f, dragSurgeQuad = 40f;
     public float dragSwayLin = 120f, dragSwayQuad = 160f;
     public float dragHeaveLin = 120f, dragHeaveQuad = 160f;
-    public float angularDrag = 26f;
+    public float angularDrag = 26f;     // explicit damping stable at dt=0.005 (c*dt/I < 1 on all axes)
     public float attitudeGain = 34f;
+    public float maxYawRate = 0.8f;     // rad/s governor — caps yaw spin
+    public float maxTiltRate = 0.2f;    // rad/s governor — keeps roll/pitch smooth + level
 
     [Header("HUD / logging")]
     public float surfaceZ = 0f;
@@ -33,6 +35,7 @@ public class RovPilotController : MonoBehaviour
     public Camera pipCamera;
     public RenderTexture pipRT;
     public Camera chaseCamera, frontCamera;
+    public RenderTexture fpvRT;
 
     [Header("Headless metrics")]
     public bool logMetrics = false;
@@ -45,14 +48,16 @@ public class RovPilotController : MonoBehaviour
     private bool _ready;
     private Transform _baseLink;
 
-    private float _cSurge, _cSway, _cHeave, _cYaw;
+    private float _cSurge, _cSway, _cHeave, _cYaw;       // raw command
+    private float _sSurge, _sSway, _sHeave, _sYaw;       // smoothed (actually-applied) thrust fraction
     private Vector3 _startPos, _pos, _linVel, _angVel, _lastForce, _lastTorque, _fwd, _stbd;
     private float _headingDeg, _speed, _vSpeed, _depth, _rollDeg, _pitchDeg, _maxTranslation, _maxStepDelta;
     private int _step;
     private double _simTime;
     private readonly System.Diagnostics.Stopwatch _clock = new System.Diagnostics.Stopwatch();
     private StreamWriter _csv;
-    private GUIStyle _box, _title, _val;
+    private GUIStyle _box, _title, _val, _small;
+    private Texture2D _panelTex;
     private RovInput.Source _inputSrc;
     private string _inputDevice = "keyboard";
 
@@ -169,23 +174,6 @@ public class RovPilotController : MonoBehaviour
         else if (depth > targetDepth + 0.15f) _cHeave = 0.5f;
     }
 
-    // yaw the ROV to point its forward (MuJoCo body x) at the worksite (so the onboard cam frames it)
-    private void FaceWorksite()
-    {
-        Vector3 e = worksite - _pos; e.z = 0f;
-        if (e.sqrMagnitude < 0.04f) return;
-        Vector3 fwdH = _fwd; fwdH.z = 0f; fwdH.Normalize();
-        Vector3 eDir = e.normalized;
-        float cross = fwdH.x * eDir.y - fwdH.y * eDir.x;   // +z component of fwd x target
-        _cYaw = Mathf.Clamp(cross * 2.5f, -1f, 1f);
-    }
-
-    private void SetView(bool fpv)
-    {
-        if (chaseCamera != null) chaseCamera.enabled = !fpv;
-        if (frontCamera != null) frontCamera.enabled = fpv;
-    }
-
     // scripted pitch/teaching tour: title -> 6-DOF control -> sonar -> guided mission -> inspection.
     private void Tour()
     {
@@ -193,21 +181,20 @@ public class RovPilotController : MonoBehaviour
         if (!_ready) return;
         _tourT += Time.deltaTime;
         float t = _tourT;
-        SetView(t >= 27f && t < 34f);                // onboard pilot cam only during the FPV phase
         if (t < 4f)                                  // intro: stabilize at depth
-        { _tourCap = "OceanScale ROV Simulator"; _tourSub = "Operator training · real MuJoCo physics"; HoldDepth(3.0f); }
+        { _tourCap = "OceanScale ROV Simulator"; _tourSub = "Subsea ROV pilot training"; HoldDepth(3.0f); }
         else if (t < 8f)                             // surge
-        { _tourCap = "6-DOF Thruster Control · Surge"; _tourSub = "Forward / reverse"; HoldDepth(3.0f); _cSurge = (t < 6f) ? 1f : -1f; }
+        { _tourCap = "Pilot Thruster Control · Surge"; _tourSub = "Forward / reverse"; HoldDepth(3.0f); _cSurge = (t < 6f) ? 1f : -1f; }
         else if (t < 12f)                            // sway
-        { _tourCap = "6-DOF Thruster Control · Sway"; _tourSub = "Lateral translation"; HoldDepth(3.0f); _cSway = (t < 10f) ? 1f : -1f; }
-        else if (t < 16f)                            // heave (bounded so the ROV never breaches the surface)
-        { _tourCap = "6-DOF Thruster Control · Heave"; _tourSub = "Dive & ascend (depth hold)"; HoldDepth(t < 14f ? 6.0f : 2.8f); }
+        { _tourCap = "Pilot Thruster Control · Sway"; _tourSub = "Lateral translation"; HoldDepth(3.0f); _cSway = (t < 10f) ? 1f : -1f; }
+        else if (t < 16f)                            // heave (bounded: above the seabed ~4.3 m, below the surface)
+        { _tourCap = "Pilot Thruster Control · Heave"; _tourSub = "Dive & ascend (depth hold)"; HoldDepth(t < 14f ? 3.9f : 1.8f); }
         else if (t < 21f)                            // yaw
-        { _tourCap = "6-DOF Thruster Control · Yaw"; _tourSub = "Heading / turn rate"; HoldDepth(3.2f); _cYaw = 1f; }
+        { _tourCap = "Pilot Thruster Control · Yaw"; _tourSub = "Heading / turn rate"; HoldDepth(3.2f); _cYaw = 0.6f; }
         else if (t < 27f)                            // sonar approach (stop short at 4.5 m)
         { _tourCap = "Forward Sonar + Altimeter"; _tourSub = "64-beam FLS · height above seabed"; HomeToWorksite(4.5f); }
-        else if (t < 34f)                            // onboard pilot camera (FPV) — face + hold off the worksite
-        { _tourCap = "Onboard Pilot Camera (FPV)"; _tourSub = "First-person view · inspecting the wellhead"; HomeToWorksite(4.5f); FaceWorksite(); }
+        else if (t < 34f)                            // onboard pilot camera (FPV) — hold off the worksite
+        { _tourCap = "Onboard Pilot Camera (FPV)"; _tourSub = "First-person view from the ROV bow"; HomeToWorksite(4.5f); }
         else if (t < 48f)                            // autonomous guided mission (3rd-person)
         { _tourCap = "Autonomous Guided Mission"; _tourSub = "Descend → Transit → Hold → Complete"; if (!_missionArmed) { _missionArmed = true; _missionTime = 0f; } HomeToWorksite(0f); }
         else                                          // inspection / complete
@@ -217,6 +204,11 @@ public class RovPilotController : MonoBehaviour
     private unsafe void FixedUpdate()
     {
         if (!_ready) return;
+        // safety governor: cap angular rates so the explicit damping can't go numerically unstable.
+        // Roll/pitch get a TIGHT cap -> attitude stays smoothly level (no jitter, no fast-spin tumble);
+        // yaw gets a looser cap so turns are visible but bounded.
+        ClampVel(BaseDofAdr + 3, maxTiltRate); ClampVel(BaseDofAdr + 4, maxTiltRate);
+        ClampVel(BaseDofAdr + 5, maxYawRate);
         double* m = _scene.Data->xmat + BaseBodyId * 9;
         var fwd = new Vector3((float)m[0], (float)m[3], (float)m[6]).normalized;
         var stbd = new Vector3((float)m[1], (float)m[4], (float)m[7]).normalized;
@@ -224,7 +216,11 @@ public class RovPilotController : MonoBehaviour
         _fwd = fwd; _stbd = stbd;
         _linVel = new Vector3((float)_scene.Data->qvel[BaseDofAdr + 0], (float)_scene.Data->qvel[BaseDofAdr + 1], (float)_scene.Data->qvel[BaseDofAdr + 2]);
         _angVel = new Vector3((float)_scene.Data->qvel[BaseDofAdr + 3], (float)_scene.Data->qvel[BaseDofAdr + 4], (float)_scene.Data->qvel[BaseDofAdr + 5]);
-        RovDynamics.ComputeWrench(fwd, stbd, bodyUp, _linVel, _angVel, _cSurge, _cSway, _cHeave, _cYaw, P, out var force, out var torque);
+        // low-pass the thrust commands so phase transitions ramp smoothly (thruster spin-up) instead of jerking
+        float k = 1f - Mathf.Exp(-Time.fixedDeltaTime / 0.35f);
+        _sSurge = Mathf.Lerp(_sSurge, _cSurge, k); _sSway = Mathf.Lerp(_sSway, _cSway, k);
+        _sHeave = Mathf.Lerp(_sHeave, _cHeave, k); _sYaw = Mathf.Lerp(_sYaw, _cYaw, k);
+        RovDynamics.ComputeWrench(fwd, stbd, bodyUp, _linVel, _angVel, _sSurge, _sSway, _sHeave, _sYaw, P, out var force, out var torque);
         _lastForce = force; _lastTorque = torque;
         int off = BaseBodyId * 6;
         _scene.Data->xfrc_applied[off + 0] = force.x; _scene.Data->xfrc_applied[off + 1] = force.y; _scene.Data->xfrc_applied[off + 2] = force.z;
@@ -233,6 +229,13 @@ public class RovPilotController : MonoBehaviour
     }
 
     private unsafe Vector3 ReadPos() { double* p = _scene.Data->xpos + BaseBodyId * 3; return new Vector3((float)p[0], (float)p[1], (float)p[2]); }
+
+    private unsafe void ClampVel(int i, float cap)
+    {
+        double v = _scene.Data->qvel[i];
+        if (v > cap) _scene.Data->qvel[i] = cap;
+        else if (v < -cap) _scene.Data->qvel[i] = -cap;
+    }
 
     private unsafe void LateUpdate()
     {
@@ -249,6 +252,12 @@ public class RovPilotController : MonoBehaviour
         _rollDeg = (float)(Math.Atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y)) * 180.0 / Math.PI);
         double sinp = 2.0 * (w * y - z * x);
         _pitchDeg = (float)(Math.Abs(sinp) >= 1 ? Math.Sign(sinp) * 90.0 : Math.Asin(sinp) * 180.0 / Math.PI);
+
+        if (frontCamera != null && _baseLink != null)        // onboard cam tracks the ROV bow (standalone object)
+        {
+            frontCamera.transform.position = _baseLink.TransformPoint(new Vector3(0f, 0.3f, 0.55f));
+            frontCamera.transform.rotation = _baseLink.rotation;
+        }
 
         UpdateSensors();
         UpdateMission();
@@ -323,31 +332,39 @@ public class RovPilotController : MonoBehaviour
         if (!drawHud || !_ready) return;
         if (_box == null)
         {
-            _box = new GUIStyle(GUI.skin.box); _box.normal.background = Texture2D.grayTexture;
-            _title = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold }; _title.normal.textColor = new Color(1f, 0.84f, 0.38f);
-            _val = new GUIStyle(GUI.skin.label) { fontSize = 14 }; _val.normal.textColor = new Color(0.82f, 0.98f, 0.90f);
+            var dark = new Texture2D(1, 1); dark.SetPixel(0, 0, new Color(0.03f, 0.06f, 0.09f, 0.82f)); dark.Apply();
+            _panelTex = dark;
+            _box = new GUIStyle(GUI.skin.box); _box.normal.background = dark; _box.border = new RectOffset(2, 2, 2, 2);
+            _title = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold }; _title.normal.textColor = new Color(1f, 0.84f, 0.38f);
+            _val = new GUIStyle(GUI.skin.label) { fontSize = 13 }; _val.normal.textColor = new Color(0.82f, 0.98f, 0.90f);
+            _small = new GUIStyle(GUI.skin.label) { fontSize = 11 }; _small.normal.textColor = new Color(0.7f, 0.85f, 0.9f);
             _capStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }; _capStyle.normal.textColor = new Color(1f, 0.86f, 0.42f);
             _subStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, alignment = TextAnchor.MiddleCenter }; _subStyle.normal.textColor = new Color(0.85f, 0.97f, 1f);
         }
-        // telemetry panel
-        GUI.Box(new Rect(14, 14, 254, 242), GUIContent.none, _box);
-        GUI.Label(new Rect(26, 20, 234, 22), "ROV OPERATOR — v1", _title);
-        int y = 48;
-        Row(ref y, "INPUT", _inputSrc + " (" + _inputDevice + ")");
+        // LEFT: telemetry panel (numeric ground truth)
+        GUI.Box(new Rect(14, 14, 230, 176), GUIContent.none, _box);
+        GUI.Label(new Rect(26, 19, 210, 22), "OceanScale ROV", _title);
+        int y = 46;
         Row(ref y, "DEPTH", _depth.ToString("F2") + " m");
         Row(ref y, "ALTITUDE", _altitude >= 0f ? _altitude.ToString("F2") + " m" : "--");
         Row(ref y, "HEADING", _headingDeg.ToString("F0") + "°");
         Row(ref y, "PITCH / ROLL", _pitchDeg.ToString("F0") + "° / " + _rollDeg.ToString("F0") + "°");
         Row(ref y, "SPEED", _speed.ToString("F2") + " m/s");
         Row(ref y, "VERT SPEED", _vSpeed.ToString("F2") + " m/s");
-        Row(ref y, "CMD S/Y", _cSurge.ToString("F1") + " / " + _cYaw.ToString("F1"));
-        Row(ref y, "CMD SW/HV", _cSway.ToString("F1") + " / " + _cHeave.ToString("F1"));
-        GUI.Box(new Rect(14, 264, 254, 24), GUIContent.none, _box);
-        GUI.Label(new Rect(26, 266, 238, 22), "Joystick  or  W/S A/D R/F Q/E", _val);
 
+        DrawThrusters(14, 198);                 // thruster command bars (real cmd_*)
+        DrawDepthGauge(254, 14, 176);           // vertical depth+altitude gauge
+        DrawCompass(Screen.width / 2f, 14, 460); // heading tape (real heading)
+        DrawAttitude(Screen.width / 2f, 74, 116); // artificial horizon (real roll/pitch)
         DrawMission();
+        DrawCameras();                          // onboard FPV + inspection PiPs (multi-camera)
         DrawSonar();
-        DrawPip();
+
+        if (!_recording)                        // keybind help only for interactive use, not the pitch video
+        {
+            GUI.Box(new Rect(14, Screen.height - 32, 360, 24), GUIContent.none, _box);
+            GUI.Label(new Rect(24, Screen.height - 30, 350, 22), "Joystick  ·  W/S A/D R/F Q/E", _val);
+        }
         if (_recording && !string.IsNullOrEmpty(_tourCap))
         {
             float bw = 760f, bx = (Screen.width - bw) / 2f, by = Screen.height - 96f;
@@ -355,6 +372,89 @@ public class RovPilotController : MonoBehaviour
             GUI.Label(new Rect(bx, by + 6, bw, 36), _tourCap, _capStyle);
             GUI.Label(new Rect(bx, by + 42, bw, 24), _tourSub, _subStyle);
         }
+    }
+
+    // ---- real-data gauges (all read live sim fields) ----
+    private void DrawThrusters(float X, float Y)
+    {
+        GUI.Box(new Rect(X, Y, 230, 92), GUIContent.none, _box);
+        GUI.Label(new Rect(X + 12, Y + 4, 210, 18), "THRUSTER CMD", _title);
+        DrawBar(X + 14, Y + 28, "SURGE", _sSurge);
+        DrawBar(X + 14, Y + 44, "SWAY", _sSway);
+        DrawBar(X + 14, Y + 60, "HEAVE", _sHeave);
+        DrawBar(X + 14, Y + 76, "YAW", _sYaw);
+    }
+
+    private void DrawBar(float x, float y, string label, float v)
+    {
+        GUI.Label(new Rect(x, y - 1, 52, 16), label, _small);
+        float bx = x + 54, bw = 150, cx = bx + bw / 2f;
+        GUI.color = new Color(0.2f, 0.3f, 0.34f, 0.9f); GUI.DrawTexture(new Rect(bx, y + 2, bw, 9), _px); GUI.color = Color.white;
+        DrawLine(new Vector2(cx, y), new Vector2(cx, y + 13), new Color(0.6f, 0.7f, 0.7f, 0.8f), 1f);
+        float f = Mathf.Clamp(v, -1f, 1f) * (bw / 2f);
+        var col = new Color(0.35f, 0.95f, 0.75f, 0.95f);
+        GUI.color = col; GUI.DrawTexture(new Rect(f >= 0 ? cx : cx + f, y + 2, Mathf.Abs(f), 9), _px); GUI.color = Color.white;
+    }
+
+    private void DrawDepthGauge(float X, float Y, float H)
+    {
+        GUI.Box(new Rect(X, Y, 64, H), GUIContent.none, _box);
+        GUI.Label(new Rect(X + 6, Y + 4, 56, 16), "DEPTH", _small);
+        float top = Y + 24, bot = Y + H - 8, span = bot - top;
+        const float maxD = 5f;                          // 0 m (surface) .. 5 m
+        for (int d = 0; d <= 5; d++)
+        {
+            float yy = top + span * (d / maxD);
+            DrawLine(new Vector2(X + 8, yy), new Vector2(X + 20, yy), new Color(0.5f, 0.6f, 0.65f, 0.7f), 1f);
+            GUI.Label(new Rect(X + 22, yy - 8, 24, 16), d.ToString(), _small);
+        }
+        float sb = top + span * Mathf.Clamp01((_depth + (_altitude >= 0 ? _altitude : 0.8f)) / maxD);  // seabed
+        DrawLine(new Vector2(X + 6, sb), new Vector2(X + 58, sb), new Color(0.7f, 0.6f, 0.35f, 0.9f), 2f);
+        float ry = top + span * Mathf.Clamp01(_depth / maxD);                                          // ROV marker
+        GUI.color = new Color(1f, 0.85f, 0.3f); GUI.DrawTexture(new Rect(X + 6, ry - 3, 18, 6), _px); GUI.color = Color.white;
+    }
+
+    private void DrawCompass(float cx, float Y, float W)
+    {
+        float H = 52f;
+        GUI.Box(new Rect(cx - W / 2f, Y, W, H), GUIContent.none, _box);
+        var lab = new GUIStyle(_val) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+        float scale = W / 150f;                          // show +-75 deg
+        int start = (int)(Mathf.Floor((_headingDeg - 75f) / 10f) * 10f);
+        for (int hd = start; hd <= _headingDeg + 75; hd += 10)         // ticks + labels at ABSOLUTE headings
+        {
+            float x = cx + (hd - _headingDeg) * scale;
+            if (x < cx - W / 2f + 6 || x > cx + W / 2f - 6) continue;
+            int h = ((hd % 360) + 360) % 360;
+            bool card = h % 90 == 0;
+            DrawLine(new Vector2(x, Y + 26), new Vector2(x, Y + (card ? 36 : 32)), new Color(0.6f, 0.78f, 0.82f, 0.85f), card ? 2f : 1f);
+            if (h % 30 == 0)
+            {
+                string s = h == 0 ? "N" : h == 90 ? "E" : h == 180 ? "S" : h == 270 ? "W" : h.ToString();
+                lab.normal.textColor = card ? new Color(1f, 0.86f, 0.42f) : new Color(0.8f, 0.92f, 0.95f);
+                GUI.Label(new Rect(x - 16, Y + 4, 32, 18), s, lab);
+            }
+        }
+        DrawLine(new Vector2(cx, Y + 24), new Vector2(cx, Y + 40), new Color(1f, 0.5f, 0.3f), 2f);   // lubber line
+        var hs = new GUIStyle(_val) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold }; hs.normal.textColor = new Color(1f, 0.86f, 0.42f);
+        GUI.Label(new Rect(cx - 40, Y + H - 18, 80, 16), _headingDeg.ToString("F0") + "°", hs);
+    }
+
+    private void DrawAttitude(float cx, float Y, float S)
+    {
+        float x0 = cx - S / 2f;
+        GUI.Box(new Rect(x0, Y, S, S), GUIContent.none, _box);
+        Vector2 c = new Vector2(cx, Y + S / 2f);
+        // horizon line: rotate by roll, shift by pitch
+        float pitchOff = Mathf.Clamp(_pitchDeg, -45f, 45f) / 45f * (S / 2.4f);
+        float roll = _rollDeg * Mathf.Deg2Rad;
+        Vector2 dir = new Vector2(Mathf.Cos(roll), Mathf.Sin(roll)) * (S / 2.4f);
+        Vector2 mid = c + new Vector2(Mathf.Sin(roll), -Mathf.Cos(roll)) * (-pitchOff);
+        DrawLine(mid - dir, mid + dir, new Color(0.4f, 0.9f, 1f, 0.95f), 2f);
+        // fixed boresight
+        DrawLine(c + new Vector2(-10, 0), c + new Vector2(-3, 0), new Color(1f, 0.85f, 0.3f), 2f);
+        DrawLine(c + new Vector2(3, 0), c + new Vector2(10, 0), new Color(1f, 0.85f, 0.3f), 2f);
+        GUI.Label(new Rect(x0 + 4, Y + 2, S, 14), "ATTITUDE", _small);
     }
 
     private void Row(ref int y, string k, string v)
@@ -366,14 +466,15 @@ public class RovPilotController : MonoBehaviour
 
     private void DrawMission()
     {
-        float W = 256, H = 150; float X = Screen.width - W - 14, Y = 14;
+        float W = 304, H = 150; float X = Screen.width - W - 14, Y = 14;
+        bool standby = _recording && !_missionArmed;
         GUI.Box(new Rect(X, Y, W, H), GUIContent.none, _box);
-        GUI.Label(new Rect(X + 12, Y + 6, W - 20, 22), "MISSION — inspect wellhead", _title);
+        GUI.Label(new Rect(X + 12, Y + 6, W - 20, 22), standby ? "MISSION · Wellhead (standby)" : "MISSION · Wellhead Inspection", _title);
         int my = (int)Y + 34;
         Chk(X + 14, ref my, _mstate > MState.Descend, "1. Descend below 3 m");
-        Chk(X + 14, ref my, _mstate > MState.Transit, "2. Transit to worksite (<3 m)");
+        Chk(X + 14, ref my, _mstate > MState.Transit, "2. Transit to worksite (< 3 m)");
         Chk(X + 14, ref my, _mstate == MState.Complete, "3. Hold station 8 s");
-        string state = (_recording && !_missionArmed) ? "STANDBY" : _mstate.ToString();
+        string state = standby ? "STANDBY" : _mstate.ToString();
         GUI.Label(new Rect(X + 14, my + 4, W - 20, 20), "RANGE  " + _distH.ToString("F1") + " m    STATE  " + state, _val);
         var sc = new GUIStyle(_title) { fontSize = 18 };
         sc.normal.textColor = _mstate == MState.Complete ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.84f, 0.38f);
@@ -384,7 +485,7 @@ public class RovPilotController : MonoBehaviour
     {
         var c = done ? new Color(0.5f, 1f, 0.6f) : new Color(0.6f, 0.7f, 0.7f);
         var st = new GUIStyle(_val); st.normal.textColor = c;
-        GUI.Label(new Rect(x, y, 240, 20), (done ? "☑ " : "☐ ") + label, st);
+        GUI.Label(new Rect(x, y, 282, 20), (done ? "☑ " : "☐ ") + label, st);
         y += 20;
     }
 
@@ -394,7 +495,7 @@ public class RovPilotController : MonoBehaviour
         GUI.Box(new Rect(cx - S / 2f, cy - S / 2f, S, S), GUIContent.none, _box);
         GUI.Label(new Rect(cx - S / 2f + 8, cy - S / 2f + 4, S, 20), "FLS SONAR", _val);
         Vector2 apex = new Vector2(cx, cy + S / 2f - 14f);
-        float maxLen = S - 30f;
+        float maxLen = (S / 2f - 12f) / Mathf.Sin(55f * Mathf.Deg2Rad);   // fit the ±55° fan inside the panel
         // range-ring arcs (always drawn -> reads as a live sonar scope, not an empty box)
         var ring = new Color(0.25f, 0.75f, 0.75f, 0.5f);
         for (int r = 1; r <= 3; r++)
@@ -430,13 +531,19 @@ public class RovPilotController : MonoBehaviour
         GUI.Label(new Rect(cx - S / 2f + 8, cy + S / 2f - 20, S, 18), "contacts: " + _sonarHits + "/" + SonarRays, _val);
     }
 
-    private void DrawPip()
+    private void DrawCameras()
     {
-        if (pipRT == null) return;
-        float W = 256f, H = 144f; float X = Screen.width - W - 14f, Y = 172f;
-        GUI.Box(new Rect(X - 2, Y - 2, W + 4, H + 22), GUIContent.none, _box);
-        GUI.Label(new Rect(X, Y - 2, W, 18), "INSPECTION CAM", _val);
-        GUI.DrawTexture(new Rect(X, Y + 16, W, H), pipRT, ScaleMode.ScaleToFit, false);
+        float W = 256f, H = 144f, X = Screen.width - W - 14f;
+        // onboard pilot camera (FPV)
+        float y1 = 176f;
+        GUI.Box(new Rect(X - 2, y1 - 2, W + 4, H + 22), GUIContent.none, _box);
+        GUI.Label(new Rect(X + 4, y1, W, 18), "ONBOARD PILOT CAM", _val);
+        if (fpvRT != null) GUI.DrawTexture(new Rect(X, y1 + 18, W, H), fpvRT, ScaleMode.ScaleAndCrop, false);
+        // inspection camera (oblique, frames the wellhead)
+        float y2 = y1 + H + 24f;
+        GUI.Box(new Rect(X - 2, y2 - 2, W + 4, H + 22), GUIContent.none, _box);
+        GUI.Label(new Rect(X + 4, y2, W, 18), "INSPECTION CAM", _val);
+        if (pipRT != null) GUI.DrawTexture(new Rect(X, y2 + 18, W, H), pipRT, ScaleMode.ScaleAndCrop, false);
     }
 
     private void DrawLine(Vector2 a, Vector2 b, Color col, float width)

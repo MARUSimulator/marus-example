@@ -20,7 +20,7 @@ public static class RovDynamics
             dragSurgeLin = 30f, dragSurgeQuad = 40f,      // terminal surge ~1.0 m/s
             dragSwayLin = 120f, dragSwayQuad = 160f,      // terminal sway  ~0.30 m/s
             dragHeaveLin = 120f, dragHeaveQuad = 160f,    // terminal heave ~0.33 m/s
-            angularDrag = 26f, attitudeGain = 34f
+            angularDrag = 26f, attitudeGain = 34f         // explicit damping stable at dt=0.005 (c*dt/I < 1 on all axes)
         };
     }
 
