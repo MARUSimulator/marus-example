@@ -151,13 +151,15 @@ public class RovPilotController : MonoBehaviour
     // Closed-loop holonomic homing in the MuJoCo world frame (z up) using the same body axes the
     // thrust is applied along (_fwd/_stbd from xmat), so surge+sway drive straight at the waypoint
     // regardless of heading. minDist > 0 lets the sonar phase approach but stop short of the worksite.
-    private void HomeToWorksite(float minDist)
+    private void HomeToWorksite(float minDist) => HomeTo(worksite, minDist);
+
+    private void HomeTo(Vector3 target, float minDist)
     {
         float depth = -_pos.z;
-        float targetDepth = -worksite.z;             // 3.6 m
+        float targetDepth = -target.z;
         if (depth < targetDepth - 0.15f) _cHeave = -1f;
         else if (depth > targetDepth + 0.15f) _cHeave = 0.5f;
-        Vector3 e = worksite - _pos; e.z = 0f;
+        Vector3 e = target - _pos; e.z = 0f;
         float dist = e.magnitude;
         if (dist <= minDist + 0.05f) return;
         Vector3 fwdH = _fwd; fwdH.z = 0f; fwdH.Normalize();
@@ -195,10 +197,12 @@ public class RovPilotController : MonoBehaviour
         { _tourCap = "Forward Sonar + Altimeter"; _tourSub = "64-beam FLS · height above seabed"; HomeToWorksite(4.5f); }
         else if (t < 34f)                            // onboard pilot camera (FPV) — hold off the worksite
         { _tourCap = "Onboard Pilot Camera (FPV)"; _tourSub = "First-person view from the ROV bow"; HomeToWorksite(4.5f); }
-        else if (t < 48f)                            // autonomous guided mission (3rd-person)
-        { _tourCap = "Autonomous Guided Mission"; _tourSub = "Descend → Transit → Hold → Complete"; if (!_missionArmed) { _missionArmed = true; _missionTime = 0f; } HomeToWorksite(0f); }
-        else                                          // inspection / complete
-        { _tourCap = "Station-Keeping & Inspection"; _tourSub = "Hold on worksite · inspection camera"; HomeToWorksite(0f); }
+        else if (t < 46f)                            // autonomous guided mission (3rd-person)
+        { _tourCap = "Task 1 · Wellhead Inspection"; _tourSub = "Auto: Descend → Transit → Hold → Complete"; if (!_missionArmed) { _missionArmed = true; _missionTime = 0f; } HomeToWorksite(0f); }
+        else if (t < 58f)                            // survey the pipeline back toward the manifold
+        { _tourCap = "Task 2 · Pipeline Survey"; _tourSub = "Track the export pipeline along the seabed"; HomeTo(new Vector3(0f, 0f, -3.6f), 0f); }
+        else                                          // station-keeping / inspection
+        { _tourCap = "Station-Keeping & Inspection"; _tourSub = "Hold · forward sonar · inspection camera"; }
     }
 
     private unsafe void FixedUpdate()

@@ -351,7 +351,31 @@ public static class RovSimBuild
             v.GetComponent<Renderer>().sharedMaterial = i == 0 ? rust : yellow;
         }
         PipeSeg(wh.transform, new Vector3(-1.2f, 0.55f, 0), new Vector3(1.2f, 0.55f, 0), 0.09f, steel);
-        Debug.Log("ENV_ADDED seabed+rocks+wellhead floorY=" + floorY);
+
+        // export pipeline running along the seabed to the wellhead (a survey/inspection target)
+        var pl = new GameObject("pipeline");
+        Vector3 pa = new Vector3(-4f, floorY + 0.22f, -1.5f), pb = new Vector3(6.2f, floorY + 0.22f, 1.3f);
+        PipeSeg(pl.transform, pa, pb, 0.13f, pipe);
+        for (int i = 0; i <= 5; i++)
+        {
+            var an = GameObject.CreatePrimitive(PrimitiveType.Cube); an.transform.SetParent(pl.transform, false);
+            an.transform.localPosition = Vector3.Lerp(pa, pb, i / 5f) + Vector3.down * 0.16f;
+            an.transform.localScale = new Vector3(0.46f, 0.26f, 0.46f);
+            an.GetComponent<Renderer>().sharedMaterial = rust;
+        }
+        // secondary subsea manifold (additional infrastructure, off to the side)
+        var mf = new GameObject("subsea manifold");
+        mf.transform.position = new Vector3(-4.6f, floorY, 3.4f); mf.transform.rotation = Quaternion.Euler(0, 28f, 0);
+        var msk = GameObject.CreatePrimitive(PrimitiveType.Cube); msk.transform.SetParent(mf.transform, false);
+        msk.transform.localPosition = new Vector3(0, 0.2f, 0); msk.transform.localScale = new Vector3(1.7f, 0.4f, 1.2f);
+        msk.GetComponent<Renderer>().sharedMaterial = steel;
+        for (int i = 0; i < 3; i++)
+        {
+            var vv = GameObject.CreatePrimitive(PrimitiveType.Cylinder); vv.transform.SetParent(mf.transform, false);
+            vv.transform.localPosition = new Vector3(-0.5f + i * 0.5f, 0.5f, 0); vv.transform.localScale = new Vector3(0.2f, 0.28f, 0.2f);
+            vv.GetComponent<Renderer>().sharedMaterial = i == 1 ? yellow : steel;
+        }
+        Debug.Log("ENV_ADDED seabed+rocks+wellhead+pipeline+manifold floorY=" + floorY);
     }
 
     private static void PipeSeg(Transform parent, Vector3 a, Vector3 b, float r, Material m)
