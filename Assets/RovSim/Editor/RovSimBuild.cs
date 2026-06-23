@@ -95,6 +95,7 @@ public static class RovSimBuild
         AddUnderwater();
         AddWater();
         AddEnvironment();
+        if (pilot != null) { pilot.worksite = new Vector3(6.5f, -4.3f, 1.5f); SetupPiP(pilot); }
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene, OutScene);
@@ -181,6 +182,57 @@ public static class RovSimBuild
         Debug.Log("WATER_ADDED HDRP native WaterSurface (ocean + underwater + caustics)");
     }
 
+    private static void SetupPiP(RovPilotController pilot)
+    {
+        var rt = new RenderTexture(256, 144, 16) { name = "PiP_RT" };
+        rt.Create();
+        var go = new GameObject("Inspection Cam");
+        go.transform.position = new Vector3(6.5f, -1.6f, 1.5f);     // above the worksite
+        go.transform.LookAt(new Vector3(6.5f, -4.1f, 1.5f));
+        var cam = go.AddComponent<Camera>();
+        cam.targetTexture = rt;
+        cam.fieldOfView = 55f;
+        cam.depth = -5f;
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = new Color(0.02f, 0.12f, 0.16f);
+        if (go.GetComponent<HDAdditionalCameraData>() == null) go.AddComponent<HDAdditionalCameraData>();
+        pilot.pipCamera = cam;
+        pilot.pipRT = rt;
+        Debug.Log("PIP_ADDED inspection camera -> 256x144 RT");
+    }
+
+    // Build Linux (works here) + attempt Windows + macOS; report per-target without failing the whole build.
+    public static void BuildAllPlatforms()
+    {
+        try
+        {
+            CreateScene();
+            var dir = System.IO.Path.GetDirectoryName(BuildPath);
+            System.IO.Directory.CreateDirectory(dir);
+            (BuildTarget, BuildTargetGroup, string)[] targets =
+            {
+                (BuildTarget.StandaloneLinux64, BuildTargetGroup.Standalone, dir + "/linux/rov_sim_v1.x86_64"),
+                (BuildTarget.StandaloneWindows64, BuildTargetGroup.Standalone, dir + "/windows/rov_sim_v1.exe"),
+                (BuildTarget.StandaloneOSX, BuildTargetGroup.Standalone, dir + "/macos/rov_sim_v1.app"),
+            };
+            foreach (var (t, g, path) in targets)
+            {
+                bool supported = BuildPipeline.IsBuildTargetSupported(g, t);
+                if (!supported) { Debug.Log("BUILD_TARGET " + t + " = MODULE_MISSING (build-support not installed)"); continue; }
+                try
+                {
+                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                    var rep = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                    { scenes = new[] { OutScene }, locationPathName = path, target = t, options = BuildOptions.None });
+                    Debug.Log("BUILD_TARGET " + t + " = " + rep.summary.result + " size=" + rep.summary.totalSize);
+                }
+                catch (Exception ex) { Debug.Log("BUILD_TARGET " + t + " = ERROR " + ex.Message); }
+            }
+            EditorApplication.Exit(0);
+        }
+        catch (Exception ex) { Debug.LogError("BUILD_ALL_EXCEPTION " + ex); EditorApplication.Exit(1); }
+    }
+
     private static void AddEnvironment()
     {
         const string dir = "Assets/RovSim/Models/env";
@@ -218,6 +270,7 @@ public static class RovSimBuild
         var seabed = new GameObject("seabed");
         seabed.AddComponent<MeshFilter>().sharedMesh = mesh;
         var sr = seabed.AddComponent<MeshRenderer>(); sr.sharedMaterial = sand; sr.receiveShadows = true;
+        seabed.AddComponent<MeshCollider>().sharedMesh = mesh;   // sonar/altimeter raycast target
 
         // scattered rocks
         var rng = new System.Random(7); var rocks = new GameObject("boulders");
@@ -234,7 +287,7 @@ public static class RovSimBuild
 
         // subsea wellhead worksite (a few m from ROV start)
         var wh = new GameObject("subsea wellhead");
-        wh.transform.position = new Vector3(2.4f, floorY, 1.2f);
+        wh.transform.position = new Vector3(6.5f, floorY, 1.5f);
         wh.transform.rotation = Quaternion.Euler(0, -24f, 0);
         var skid = GameObject.CreatePrimitive(PrimitiveType.Cube); skid.transform.SetParent(wh.transform, false);
         skid.transform.localPosition = new Vector3(0, 0.18f, 0); skid.transform.localScale = new Vector3(2.4f, 0.36f, 1.9f);
