@@ -29,7 +29,7 @@ public class RovPilotController : MonoBehaviour
     public string csvPath = "/mnt/storage/marus-rov-sim/logs/rov_session.csv";
 
     [Header("Sensors / mission")]
-    public Vector3 worksite = new Vector3(6.5f, -4.3f, 1.5f);   // wellhead waypoint (Unity world)
+    public Vector3 worksite = new Vector3(5f, 2.5f, -3.6f);   // worksite waypoint in MuJoCo world (z up)
     public Camera pipCamera;
     public RenderTexture pipRT;
 
@@ -45,7 +45,7 @@ public class RovPilotController : MonoBehaviour
     private Transform _baseLink;
 
     private float _cSurge, _cSway, _cHeave, _cYaw;
-    private Vector3 _startPos, _pos, _linVel, _angVel, _lastForce, _lastTorque;
+    private Vector3 _startPos, _pos, _linVel, _angVel, _lastForce, _lastTorque, _fwd, _stbd;
     private float _headingDeg, _speed, _vSpeed, _depth, _rollDeg, _pitchDeg, _maxTranslation, _maxStepDelta;
     private int _step;
     private double _simTime;
@@ -125,6 +125,8 @@ public class RovPilotController : MonoBehaviour
         OpenCsv();
         Debug.Log("ROVPILOT_READY nq=" + (int)_scene.Model->nq + " nv=" + (int)_scene.Model->nv +
                   " baseLink=" + _baseLink.name + " worksite=" + worksite);
+        Debug.Log("FRAMECHECK unityPos=" + _baseLink.position.ToString("F2") + " mjPos=" + ReadPos().ToString("F2") +
+                  " unityFwd=" + _baseLink.forward.ToString("F2"));
     }
 
     private void ReadInput()
@@ -134,16 +136,28 @@ public class RovPilotController : MonoBehaviour
         _cSurge = c.surge; _cSway = c.sway; _cHeave = c.heave; _cYaw = c.yaw;
     }
 
-    // scripted mission autopilot for the demo recording: descend, transit to worksite, hold
+    // scripted mission autopilot for the demo recording: descend, transit to the worksite, hold.
+    // Closed-loop holonomic homing in the MuJoCo world frame (z up) using the same body axes the
+    // thrust is applied along (_fwd/_stbd from xmat), so surge+sway drive straight at the waypoint
+    // regardless of heading. Working in one frame avoids the Unity<->MuJoCo axis mismatch.
     private void Guidance()
     {
         _cSurge = _cSway = _cHeave = _cYaw = 0f;
-        if (_baseLink == null) return;
-        float depth = -_baseLink.position.y;
-        if (depth < 3.4f) { _cHeave = -1f; }
-        else if (depth > 3.9f) { _cHeave = 0.4f; }
-        if (_mstate != MState.Hold && _mstate != MState.Complete && _distH > 2.4f && depth > 2.5f)
-            _cSurge = 1f;   // surge toward the worksite (placed along +surge path)
+        if (!_ready) return;
+        float depth = -_pos.z;                       // MuJoCo z up: deeper = more negative
+        float targetDepth = -worksite.z;             // 3.6 m
+        if (depth < targetDepth - 0.15f) _cHeave = -1f;        // go deeper
+        else if (depth > targetDepth + 0.15f) _cHeave = 0.5f;  // rise
+
+        if (_mstate == MState.Complete) return;
+        Vector3 e = worksite - _pos; e.z = 0f;       // horizontal error in MuJoCo XY
+        float dist = e.magnitude;
+        if (dist < 0.05f) return;
+        Vector3 fwdH = _fwd; fwdH.z = 0f; fwdH.Normalize();
+        Vector3 stbdH = _stbd; stbdH.z = 0f; stbdH.Normalize();
+        float drive = Mathf.Clamp01(dist / 2.5f);    // full thrust far out, taper within 2.5 m
+        _cSurge = Mathf.Clamp(Vector3.Dot(e.normalized, fwdH) * drive, -1f, 1f);
+        _cSway = Mathf.Clamp(Vector3.Dot(e.normalized, stbdH) * drive, -1f, 1f);
     }
 
     private unsafe void FixedUpdate()
@@ -153,6 +167,7 @@ public class RovPilotController : MonoBehaviour
         var fwd = new Vector3((float)m[0], (float)m[3], (float)m[6]).normalized;
         var stbd = new Vector3((float)m[1], (float)m[4], (float)m[7]).normalized;
         var bodyUp = new Vector3((float)m[2], (float)m[5], (float)m[8]).normalized;
+        _fwd = fwd; _stbd = stbd;
         _linVel = new Vector3((float)_scene.Data->qvel[BaseDofAdr + 0], (float)_scene.Data->qvel[BaseDofAdr + 1], (float)_scene.Data->qvel[BaseDofAdr + 2]);
         _angVel = new Vector3((float)_scene.Data->qvel[BaseDofAdr + 3], (float)_scene.Data->qvel[BaseDofAdr + 4], (float)_scene.Data->qvel[BaseDofAdr + 5]);
         RovDynamics.ComputeWrench(fwd, stbd, bodyUp, _linVel, _angVel, _cSurge, _cSway, _cHeave, _cYaw, P, out var force, out var torque);
@@ -218,9 +233,9 @@ public class RovPilotController : MonoBehaviour
 
     private void UpdateMission()
     {
-        if (_baseLink == null) return;
-        float depth = -_baseLink.position.y;
-        Vector3 toWp = worksite - _baseLink.position; toWp.y = 0f; _distH = toWp.magnitude;
+        if (!_ready) return;
+        float depth = -_pos.z;                                  // MuJoCo z up
+        Vector3 toWp = worksite - _pos; toWp.z = 0f; _distH = toWp.magnitude;
         _missionTime += Time.deltaTime;
         switch (_mstate)
         {
@@ -239,7 +254,8 @@ public class RovPilotController : MonoBehaviour
                 break;
         }
         float avgErr = _stationN > 0 ? _stationErrAccum / _stationN : 0f;
-        _score = Mathf.Clamp(100f - _missionTime * 1.2f - avgErr * 12f, 0f, 100f);
+        if (_mstate != MState.Complete)
+            _score = Mathf.Clamp(100f - _missionTime * 1.2f - avgErr * 12f, 0f, 100f);  // freeze at completion
         if (_mstate == MState.Complete && !_logComplete)
         { Debug.Log("MISSION step=HOLD->COMPLETE time=" + _missionTime.ToString("F1") + " avgStationErr=" + avgErr.ToString("F2") + " score=" + _score.ToString("F0")); _logComplete = true; }
     }
