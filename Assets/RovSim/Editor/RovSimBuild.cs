@@ -51,6 +51,7 @@ public static class RovSimBuild
     private static void CreateScene()
     {
         var scene = EditorSceneManager.OpenScene(BaseScene, OpenSceneMode.Single);
+        QualitySettings.SetQualityLevel(QualitySettings.names.Length - 1, true);
 
         var rov = new MjImporterWithAssets().ImportFile(Mjcf);
         rov.name = "rov_v1";
@@ -86,6 +87,8 @@ public static class RovSimBuild
             follow.offset = new Vector3(1.7f, 0.9f, -2.2f);
             cam.transform.position = baseT.position + follow.offset;
             cam.transform.LookAt(baseT.position);
+            var hdCam = cam.GetComponent<HDAdditionalCameraData>();
+            if (hdCam != null) hdCam.antialiasing = HDAdditionalCameraData.AntialiasingMode.TemporalAntialiasing;
         }
 
         AddUnderwater();
@@ -101,30 +104,84 @@ public static class RovSimBuild
 
     private static void AddUnderwater()
     {
-        var volGo = new GameObject("RovSim Underwater Fog");
+        var volGo = new GameObject("RovSim Underwater Volume");
         var vol = volGo.AddComponent<Volume>();
         vol.isGlobal = true;
         vol.priority = 100f;
         var profile = ScriptableObject.CreateInstance<VolumeProfile>();
         vol.sharedProfile = profile;
+
+        // volumetric underwater fog (god-ray scattering + depth color absorption)
         var fog = profile.Add<Fog>(true);
         fog.enabled.Override(true);
-        fog.meanFreePath.Override(3.5f);                          // dense murk: ~7 m visibility
-        fog.albedo.Override(new Color(0.05f, 0.30f, 0.34f));
-        fog.tint.Override(new Color(0.02f, 0.13f, 0.17f));        // dark blue-green, red absorbed
+        fog.enableVolumetricFog.Override(true);
+        fog.meanFreePath.Override(5f);                  // denser -> visible distance attenuation/murk
+        fog.albedo.Override(new Color(0.10f, 0.46f, 0.52f));
+        fog.tint.Override(new Color(0.05f, 0.22f, 0.28f));
+        fog.anisotropy.Override(0.75f);                 // forward scatter -> visible light shafts
+        fog.multipleScatteringIntensity.Override(0.4f);
+        fog.depthExtent.Override(60f);
         fog.baseHeight.Override(-200f);
         fog.maximumHeight.Override(200f);
+
+        // cinematic post (keep MARUS scene auto-exposure for brightness; just grade + tonemap)
+        var tm = profile.Add<Tonemapping>(true);
+        tm.mode.Override(TonemappingMode.ACES);
+        var bloom = profile.Add<Bloom>(true);
+        bloom.intensity.Override(0.28f); bloom.threshold.Override(0.9f); bloom.scatter.Override(0.78f);
+        var ca = profile.Add<ColorAdjustments>(true);
+        ca.postExposure.Override(0.15f); ca.contrast.Override(14f); ca.saturation.Override(8f);
+        ca.colorFilter.Override(new Color(0.82f, 0.92f, 1.0f));
+
+        // make the scene sun volumetric -> god-ray shafts
+        var sun = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None)
+            .FirstOrDefault(l => l.type == LightType.Directional);
+        if (sun != null)
+        {
+            var hd = sun.GetComponent<HDAdditionalLightData>();
+            if (hd != null) { hd.affectsVolumetric = true; hd.volumetricDimmer = 8f; }
+            sun.shadows = LightShadows.Soft;
+        }
+
+        AddMarineSnow();
 
         var seabed = GameObject.CreatePrimitive(PrimitiveType.Plane);
         seabed.name = "subsea floor";
         seabed.transform.position = new Vector3(0f, -4.4f, 0f);
-        seabed.transform.localScale = new Vector3(6f, 1f, 6f);
+        seabed.transform.localScale = new Vector3(8f, 1f, 8f);
         var shader = Shader.Find("HDRP/Lit");
         if (shader != null)
         {
             var m = new Material(shader);
-            m.SetColor("_BaseColor", new Color(0.16f, 0.18f, 0.14f));
+            m.SetColor("_BaseColor", new Color(0.20f, 0.21f, 0.16f));
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.08f);
             seabed.GetComponent<Renderer>().sharedMaterial = m;
+        }
+    }
+
+    private static void AddMarineSnow()
+    {
+        var go = new GameObject("marine snow");
+        go.transform.position = new Vector3(0f, -3f, 0f);
+        var ps = go.AddComponent<ParticleSystem>();
+        var main = ps.main;
+        main.startLifetime = 9f;
+        main.startSpeed = 0.04f;
+        main.startSize = new ParticleSystem.MinMaxCurve(0.012f, 0.05f);
+        main.maxParticles = 2600;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.startColor = new Color(0.88f, 0.96f, 1.0f, 0.8f);
+        var em = ps.emission; em.rateOverTime = 300f;
+        var shp = ps.shape; shp.shapeType = ParticleSystemShapeType.Box; shp.scale = new Vector3(16f, 7f, 16f);
+        var vel = ps.velocityOverLifetime; vel.enabled = true;
+        vel.y = new ParticleSystem.MinMaxCurve(-0.05f, -0.01f);
+        var rend = ps.GetComponent<ParticleSystemRenderer>();
+        var psh = Shader.Find("HDRP/Unlit");
+        if (psh != null)
+        {
+            var pm = new Material(psh);
+            if (pm.HasProperty("_BaseColor")) pm.SetColor("_BaseColor", new Color(0.9f, 0.97f, 1f, 0.55f));
+            rend.sharedMaterial = pm;
         }
     }
 
