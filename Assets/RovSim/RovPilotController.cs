@@ -56,11 +56,40 @@ public class RovPilotController : MonoBehaviour
         angularDrag = angularDrag, attitudeGain = attitudeGain
     };
 
+    // offline recording (captures the player's own framebuffer = scene+HUD, no desktop overlays)
+    private bool _recording;
+    private string _recordDir;
+    private int _recordFrame, _recordTotal;
+
     private void Start()
     {
         Time.fixedDeltaTime = 0.005f;
         _clock.Start();
+        _recordDir = Environment.GetEnvironmentVariable("ROVSIM_RECORD");
+        if (!string.IsNullOrEmpty(_recordDir))
+        {
+            _recording = true;
+            Directory.CreateDirectory(_recordDir);
+            Time.captureFramerate = 30;
+            float secs = 38f;
+            if (float.TryParse(Environment.GetEnvironmentVariable("ROVSIM_RECORD_SECONDS"), out var s) && s > 1f) secs = s;
+            _recordTotal = Mathf.RoundToInt(secs * 30f);
+        }
         TryInit();
+    }
+
+    // scripted pilot run for recording (t = capture seconds)
+    private void ScriptedCmd(float t)
+    {
+        _cSurge = _cSway = _cHeave = _cYaw = 0f;
+        if (t < 3f) { }                              // 0-3 settle
+        else if (t < 9f) _cSurge = 1f;               // 3-9 surge
+        else if (t < 13f) _cYaw = 1f;                // 9-13 yaw
+        else if (t < 17f) _cSway = 1f;               // 13-17 sway
+        else if (t < 21f) _cHeave = 1f;              // 17-21 ascend
+        else if (t < 25f) _cHeave = -1f;             // 21-25 descend
+        else if (t < 31f) { _cSurge = 1f; _cYaw = 1f; } // 25-31 turning transit
+        // 31+ settle
     }
 
     private void Update()
@@ -91,6 +120,7 @@ public class RovPilotController : MonoBehaviour
 
     private void ReadInput()
     {
+        if (_recording) { _inputSrc = RovInput.Source.Keyboard; _inputDevice = "scripted"; ScriptedCmd(_recordFrame / 30f); return; }
         var c = RovInput.Read(out _inputSrc, out _inputDevice);
         _cSurge = c.surge; _cSway = c.sway; _cHeave = c.heave; _cYaw = c.yaw;
     }
@@ -151,6 +181,13 @@ public class RovPilotController : MonoBehaviour
 
         WriteCsvRow();
         _step++;
+
+        if (_recording)
+        {
+            ScreenCapture.CaptureScreenshot($"{_recordDir}/frame_{_recordFrame:00000}.png");
+            _recordFrame++;
+            if (_recordFrame >= _recordTotal) { WriteMetrics("record_done"); CloseCsv(); Application.Quit(); }
+        }
     }
 
     private static float NormalizeHeading(float h) { h %= 360f; if (h < 0f) h += 360f; return h; }

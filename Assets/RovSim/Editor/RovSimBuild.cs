@@ -59,6 +59,7 @@ public static class RovSimBuild
         rov.transform.rotation = Quaternion.identity;
         ForceMjMeshes(rov);
         StyleRobot(rov);
+        SwapInFuelRov(rov);
         var pilot = rov.AddComponent<RovPilotController>();
         pilot.autoQuitSeconds = 0f;    // interactive/demo build: runs until closed
         pilot.logMetrics = true;
@@ -183,6 +184,62 @@ public static class RovSimBuild
             if (pm.HasProperty("_BaseColor")) pm.SetColor("_BaseColor", new Color(0.9f, 0.97f, 1f, 0.55f));
             rend.sharedMaterial = pm;
         }
+    }
+
+    private static void SwapInFuelRov(GameObject rov)
+    {
+        const string dae = "Assets/RovSim/Models/fuel_rov/fuel_rov.dae";
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(dae);
+        if (prefab == null) { Debug.LogError("FUELROV_MISSING " + dae); return; }
+
+        var baseT = rov.GetComponentsInChildren<Transform>(true)
+            .FirstOrDefault(t => t.name.IndexOf("base_link", StringComparison.OrdinalIgnoreCase) >= 0) ?? rov.transform;
+
+        // hide the primitive box visuals (keep MjGeom for physics/collision)
+        foreach (var r in rov.GetComponentsInChildren<MeshRenderer>(true)) r.enabled = false;
+
+        var vis = (GameObject)UnityEngine.Object.Instantiate(prefab);
+        vis.name = "fuel_rov_visual";
+        vis.transform.SetParent(baseT, false);
+        vis.transform.localPosition = Vector3.zero;
+        vis.transform.localRotation = Quaternion.Euler(0f, 36f, 0f);
+        vis.transform.localScale = Vector3.one;
+
+        var shader = Shader.Find("HDRP/Lit");
+        if (shader != null)
+        {
+            const string dir = "Assets/RovSim/Models/fuel_rov";
+            var col = AssetDatabase.LoadAssetAtPath<Texture2D>(dir + "/color.png");
+            var nrm = AssetDatabase.LoadAssetAtPath<Texture2D>(dir + "/normal.png");
+            var msk = AssetDatabase.LoadAssetAtPath<Texture2D>(dir + "/mask.png");
+            var mat = new Material(shader);
+            if (col != null) mat.SetTexture("_BaseColorMap", col);
+            if (nrm != null) { mat.SetTexture("_NormalMap", nrm); mat.EnableKeyword("_NORMALMAP"); }
+            if (msk != null) { mat.SetTexture("_MaskMap", msk); mat.EnableKeyword("_MASKMAP"); }
+            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.5f);
+            foreach (var r in vis.GetComponentsInChildren<MeshRenderer>(true)) r.sharedMaterial = mat;
+        }
+
+        // auto-scale to ~0.9 m longest dimension and recenter on base_link
+        var b = CombinedBounds(vis);
+        float maxDim = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
+        if (maxDim > 1e-3f)
+        {
+            vis.transform.localScale = Vector3.one * (0.9f / maxDim);
+            var b2 = CombinedBounds(vis);
+            vis.transform.position += baseT.position - b2.center;   // center the mesh on base_link
+        }
+        Debug.Log("FUELROV_SWAPPED maxDim=" + maxDim.ToString("F3") +
+                  " renderers=" + vis.GetComponentsInChildren<MeshRenderer>(true).Length);
+    }
+
+    private static Bounds CombinedBounds(GameObject go)
+    {
+        var rs = go.GetComponentsInChildren<Renderer>(true);
+        if (rs.Length == 0) return new Bounds(go.transform.position, Vector3.one * 0.5f);
+        var b = rs[0].bounds;
+        for (int i = 1; i < rs.Length; i++) b.Encapsulate(rs[i].bounds);
+        return b;
     }
 
     private static void StyleRobot(GameObject root)
