@@ -19,6 +19,9 @@ public static class RovSimBuild
         return System.IO.File.Exists(p) ? p : "/mnt/storage/marus-rov-sim/" + rel;
     }
     private static string Mjcf => RepoFile("staging/rov_v1.xml");
+    // environment selector (set ROVSIM_SCENE=deepwater for the clear blue-water site)
+    private static string Scene => (Environment.GetEnvironmentVariable("ROVSIM_SCENE") ?? "harbor").ToLowerInvariant();
+    private static bool DeepWater => Scene == "deepwater";
     private const string BaseScene = "Assets/Scenes/ExampleScene.unity";
     private const string OutScene = "Assets/RovSim/rov_sim_v1.unity";
     private static string BuildPath => System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", "Builds", "rov_sim_v1.x86_64"));
@@ -165,8 +168,8 @@ public static class RovSimBuild
         var fog = profile.Add<Fog>(true);
         fog.enabled.Override(true);
         fog.enableVolumetricFog.Override(true);
-        fog.meanFreePath.Override(8.5f);                // haze visible by ~8 m; seabed/ROV stay readable near
-        fog.albedo.Override(new Color(0.09f, 0.40f, 0.50f));
+        fog.meanFreePath.Override(DeepWater ? 16f : 8.5f);   // deepwater = clearer (longer visibility)
+        fog.albedo.Override(DeepWater ? new Color(0.07f, 0.28f, 0.55f) : new Color(0.09f, 0.40f, 0.50f));
         fog.tint.Override(new Color(0.04f, 0.18f, 0.26f));
         fog.anisotropy.Override(0.78f);                 // forward scatter -> visible light shafts
         fog.multipleScatteringIntensity.Override(0.55f);
@@ -222,8 +225,8 @@ public static class RovSimBuild
         w.caustics = true;
         w.causticsIntensity = 1.0f;
         w.causticsResolution = WaterSurface.WaterCausticsResolution.Caustics512;
-        w.absorptionDistanceMultiplier = 2.6f;          // turbid: dark water column so the ROV work-light cones read
-        w.underWaterScatteringColor = new Color(0.04f, 0.13f, 0.20f); // deep blue-green
+        w.absorptionDistanceMultiplier = DeepWater ? 7.0f : 2.6f;   // deepwater: clearer; harbor: turbid
+        w.underWaterScatteringColor = DeepWater ? new Color(0.03f, 0.10f, 0.26f) : new Color(0.04f, 0.13f, 0.20f); // bluer vs blue-green
         w.underWaterAmbientProbeContribution = 0.35f;   // dim ambient -> vehicle lights dominate (authentic ROV footage)
         Debug.Log("WATER_ADDED HDRP native WaterSurface (ocean + underwater + caustics)");
     }

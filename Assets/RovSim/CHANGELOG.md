@@ -23,6 +23,7 @@ First reproducible demo MVP.
 - Forward multibeam sonar (64 rays / 18 m), altimeter, telemetry CSV.
 
 ### Scene & tasks
+- Two selectable environments via `ROVSIM_SCENE` (`harbor` turbid green / `deepwater` clear blue).
 - Subsea scene: textured CC0 seabed (low relief), recognizable Gazebo Fuel ROV (CC-BY),
   wellhead, export pipeline + anchors, secondary manifold, native HDRP underwater water,
   volumetric fog, marine snow.
@@ -41,5 +42,5 @@ First reproducible demo MVP.
 ### Known limitations (honest)
 - Visual is free-stack (independent review ~5–7/10); production photorealism needs licensed
   water shader + paid subsea assets.
-- One environment with four scripted tasks; full scenario library and Win/macOS packaging are future work.
+- Two environments × four scripted tasks; full scenario library and Win/macOS packaging are future work.
 - HOTAS throttle unit (e.g. X56) not yet bound — stick only.

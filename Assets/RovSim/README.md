@@ -20,6 +20,7 @@ Requirements: Unity **6000.0.42f1** (HDRP + org.mujoco packages), `ffmpeg`, and 
 for the recording step.
 ```bash
 UNITY=/path/to/Unity/6000.0.42f1/Editor/Unity  DISPLAY_ID=:1  tools/reproduce_demo.sh
+# environment variant: prefix with  ROVSIM_SCENE=deepwater  (default: harbor)
 ```
 Produces `Builds/OceanScale_ROV_Sim_demo.mp4` (64 s, two tasks) and the telemetry/logs.
 
