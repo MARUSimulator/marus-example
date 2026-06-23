@@ -93,6 +93,8 @@ public static class RovSimBuild
         }
 
         AddUnderwater();
+        AddWater();
+        AddEnvironment();
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene, OutScene);
@@ -114,7 +116,7 @@ public static class RovSimBuild
 
         // volumetric underwater fog (god-ray scattering + depth color absorption)
         var fog = profile.Add<Fog>(true);
-        fog.enabled.Override(true);
+        fog.enabled.Override(false);   // native HDRP WaterSurface handles underwater murk/absorption
         fog.enableVolumetricFog.Override(true);
         fog.meanFreePath.Override(5f);                  // denser -> visible distance attenuation/murk
         fog.albedo.Override(new Color(0.10f, 0.46f, 0.52f));
@@ -158,6 +160,137 @@ public static class RovSimBuild
             if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.08f);
             seabed.GetComponent<Renderer>().sharedMaterial = m;
         }
+    }
+
+    private static void AddWater()
+    {
+        var go = new GameObject("Ocean");
+        go.transform.position = Vector3.zero;          // surface at y=0
+        var w = go.AddComponent<WaterSurface>();
+        w.surfaceType = WaterSurfaceType.OceanSeaLake;
+        w.geometryType = WaterGeometryType.Infinite;
+        w.underWater = true;                            // native underwater rendering
+        w.underWaterRefraction = true;
+        w.volumeDepth = 80f;                            // cover ROV (-3 m) + seabed (-4.4 m)
+        w.caustics = true;
+        w.causticsIntensity = 1.0f;
+        w.causticsResolution = WaterSurface.WaterCausticsResolution.Caustics512;
+        w.absorptionDistanceMultiplier = 18f;           // near-clear: textured seabed + worksite read crisply, blue only at distance
+        w.underWaterScatteringColor = new Color(0.05f, 0.16f, 0.24f); // bluer, less green wash
+        w.underWaterAmbientProbeContribution = 1.0f;
+        Debug.Log("WATER_ADDED HDRP native WaterSurface (ocean + underwater + caustics)");
+    }
+
+    private static void AddEnvironment()
+    {
+        const string dir = "Assets/RovSim/Models/env";
+        float floorY = -4.3f;
+        var sand = MakeTexMat(dir + "/ground_color.png", dir + "/ground_normal.png", new Vector2(11f, 11f), 0.10f, "M_seabed_sand");
+        var rockMat = MakeTexMat(dir + "/rock_color.png", dir + "/rock_normal.png", new Vector2(1f, 1f), 0.18f, "M_rock");
+        var steel = MakeMat(new Color(0.10f, 0.11f, 0.12f), 0.85f, 0.55f, "M_wet_steel");
+        var pipe = MakeMat(new Color(0.07f, 0.08f, 0.09f), 0.7f, 0.45f, "M_pipe");
+        var rust = MakeMat(new Color(0.32f, 0.18f, 0.09f), 0.3f, 0.3f, "M_rust");
+        var yellow = MakeMat(new Color(0.9f, 0.7f, 0.08f), 0.1f, 0.4f, "M_valve_yellow");
+
+        // dune seabed mesh
+        var mesh = new Mesh { name = "seabed", indexFormat = IndexFormat.UInt32 };
+        const int cells = 160; const float size = 44f;
+        var verts = new Vector3[(cells + 1) * (cells + 1)]; var uvs = new Vector2[verts.Length]; var tris = new int[cells * cells * 6];
+        for (int z = 0; z <= cells; z++)
+            for (int x = 0; x <= cells; x++)
+            {
+                float xf = (x / (float)cells - 0.5f) * size, zf = (z / (float)cells - 0.5f) * size;
+                float h = Mathf.PerlinNoise(xf * 0.09f + 11f, zf * 0.09f + 7f) * 1.4f
+                        + Mathf.PerlinNoise(xf * 0.28f + 3f, zf * 0.28f + 9f) * 0.5f
+                        + Mathf.PerlinNoise(xf * 0.9f, zf * 0.9f) * 0.14f;
+                verts[z * (cells + 1) + x] = new Vector3(xf, floorY + h - 1.0f, zf);
+                uvs[z * (cells + 1) + x] = new Vector2(xf / 2f, zf / 2f);
+            }
+        int ti = 0;
+        for (int z = 0; z < cells; z++)
+            for (int x = 0; x < cells; x++)
+            {
+                int i = z * (cells + 1) + x;
+                tris[ti++] = i; tris[ti++] = i + cells + 1; tris[ti++] = i + 1;
+                tris[ti++] = i + 1; tris[ti++] = i + cells + 1; tris[ti++] = i + cells + 2;
+            }
+        mesh.vertices = verts; mesh.uv = uvs; mesh.triangles = tris; mesh.RecalculateNormals(); mesh.RecalculateTangents();
+        var seabed = new GameObject("seabed");
+        seabed.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var sr = seabed.AddComponent<MeshRenderer>(); sr.sharedMaterial = sand; sr.receiveShadows = true;
+
+        // scattered rocks
+        var rng = new System.Random(7); var rocks = new GameObject("boulders");
+        for (int i = 0; i < 38; i++)
+        {
+            var rk = GameObject.CreatePrimitive(PrimitiveType.Sphere); rk.transform.SetParent(rocks.transform);
+            float ang = (float)(rng.NextDouble() * Math.PI * 2), dist = 1.8f + (float)rng.NextDouble() * 11f;
+            rk.transform.position = new Vector3(Mathf.Cos(ang) * dist, floorY - 0.2f - (float)rng.NextDouble() * 0.3f, Mathf.Sin(ang) * dist + 1f);
+            float s = 0.3f + (float)Math.Pow(rng.NextDouble(), 1.7) * 1.8f;
+            rk.transform.localScale = new Vector3(s, s * (0.5f + (float)rng.NextDouble() * 0.4f), s * (0.8f + (float)rng.NextDouble() * 0.5f));
+            rk.transform.rotation = Quaternion.Euler((float)rng.NextDouble() * 40, (float)rng.NextDouble() * 360, (float)rng.NextDouble() * 40);
+            rk.GetComponent<Renderer>().sharedMaterial = rockMat;
+        }
+
+        // subsea wellhead worksite (a few m from ROV start)
+        var wh = new GameObject("subsea wellhead");
+        wh.transform.position = new Vector3(2.4f, floorY, 1.2f);
+        wh.transform.rotation = Quaternion.Euler(0, -24f, 0);
+        var skid = GameObject.CreatePrimitive(PrimitiveType.Cube); skid.transform.SetParent(wh.transform, false);
+        skid.transform.localPosition = new Vector3(0, 0.18f, 0); skid.transform.localScale = new Vector3(2.4f, 0.36f, 1.9f);
+        skid.GetComponent<Renderer>().sharedMaterial = steel;
+        var corners = new[] { new Vector3(-1.1f, 0.4f, -0.85f), new Vector3(1.1f, 0.4f, -0.85f), new Vector3(1.1f, 0.4f, 0.85f), new Vector3(-1.1f, 0.4f, 0.85f) };
+        for (int i = 0; i < 4; i++) PipeSeg(wh.transform, corners[i], corners[(i + 1) % 4], 0.06f, pipe);
+        foreach (var cn in corners) PipeSeg(wh.transform, cn, cn + Vector3.up * 1.0f, 0.06f, pipe);
+        float sy = 0.4f;
+        for (int i = 0; i < 4; i++)
+        {
+            var seg = GameObject.CreatePrimitive(PrimitiveType.Cylinder); seg.transform.SetParent(wh.transform, false);
+            float h = 0.26f - i * 0.03f; seg.transform.localPosition = new Vector3(0, sy + h, 0); seg.transform.localScale = new Vector3(0.42f - i * 0.06f, h, 0.42f - i * 0.06f);
+            seg.GetComponent<Renderer>().sharedMaterial = i % 2 == 0 ? steel : pipe;
+            var fl = GameObject.CreatePrimitive(PrimitiveType.Cylinder); fl.transform.SetParent(wh.transform, false);
+            fl.transform.localPosition = new Vector3(0, sy + h * 2, 0); fl.transform.localScale = new Vector3(0.52f - i * 0.06f, 0.025f, 0.52f - i * 0.06f);
+            fl.GetComponent<Renderer>().sharedMaterial = steel; sy += h * 2;
+        }
+        for (int i = 0; i < 2; i++)
+        {
+            var v = GameObject.CreatePrimitive(PrimitiveType.Cylinder); v.transform.SetParent(wh.transform, false);
+            v.transform.localPosition = new Vector3(-0.45f + i * 0.9f, 0.78f, -0.55f); v.transform.localRotation = Quaternion.Euler(90, 0, 0); v.transform.localScale = new Vector3(0.26f, 0.03f, 0.26f);
+            v.GetComponent<Renderer>().sharedMaterial = i == 0 ? rust : yellow;
+        }
+        PipeSeg(wh.transform, new Vector3(-1.2f, 0.55f, 0), new Vector3(1.2f, 0.55f, 0), 0.09f, steel);
+        Debug.Log("ENV_ADDED seabed+rocks+wellhead floorY=" + floorY);
+    }
+
+    private static void PipeSeg(Transform parent, Vector3 a, Vector3 b, float r, Material m)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder); go.transform.SetParent(parent, false);
+        var mid = (a + b) * 0.5f; var dir = b - a; float len = dir.magnitude;
+        go.transform.localPosition = mid; go.transform.up = dir.normalized; go.transform.localScale = new Vector3(r * 2, len * 0.5f, r * 2);
+        go.GetComponent<Renderer>().sharedMaterial = m;
+    }
+
+    private static Material MakeMat(Color c, float metal, float smooth, string name)
+    {
+        var m = new Material(Shader.Find("HDRP/Lit")) { name = name };
+        m.SetColor("_BaseColor", c);
+        if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", metal);
+        if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smooth);
+        return m;
+    }
+
+    private static Material MakeTexMat(string colorPath, string normalPath, Vector2 tiling, float smooth, string name)
+    {
+        var ni = AssetImporter.GetAtPath(normalPath) as TextureImporter;
+        if (ni != null && ni.textureType != TextureImporterType.NormalMap) { ni.textureType = TextureImporterType.NormalMap; ni.SaveAndReimport(); }
+        var m = new Material(Shader.Find("HDRP/Lit")) { name = name };
+        var col = AssetDatabase.LoadAssetAtPath<Texture2D>(colorPath);
+        var nrm = AssetDatabase.LoadAssetAtPath<Texture2D>(normalPath);
+        if (col != null) { m.SetTexture("_BaseColorMap", col); m.SetTextureScale("_BaseColorMap", tiling); }
+        if (nrm != null) { m.SetTexture("_NormalMap", nrm); m.SetTextureScale("_NormalMap", tiling); m.EnableKeyword("_NORMALMAP"); }
+        if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smooth);
+        if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f);
+        return m;
     }
 
     private static void AddMarineSnow()
