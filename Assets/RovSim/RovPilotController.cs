@@ -66,7 +66,7 @@ public class RovPilotController : MonoBehaviour
     private void Update()
     {
         if (!_ready) { TryInit(); return; }
-        ReadKeyboard();
+        ReadInput();
         if (autoQuitSeconds > 0f && _clock.Elapsed.TotalSeconds >= autoQuitSeconds)
         {
             WriteMetrics("auto_quit");
@@ -86,15 +86,14 @@ public class RovPilotController : MonoBehaviour
         Debug.Log("ROVPILOT_READY nq=" + (int)_scene.Model->nq + " nv=" + (int)_scene.Model->nv);
     }
 
-    private void ReadKeyboard()
-    {
-        _cSurge = Axis(Input.GetKey(KeyCode.W), Input.GetKey(KeyCode.S));
-        _cSway = Axis(Input.GetKey(KeyCode.D), Input.GetKey(KeyCode.A));
-        _cHeave = Axis(Input.GetKey(KeyCode.R), Input.GetKey(KeyCode.F));
-        _cYaw = Axis(Input.GetKey(KeyCode.E), Input.GetKey(KeyCode.Q));
-    }
+    private RovInput.Source _inputSrc;
+    private string _inputDevice = "keyboard";
 
-    private static float Axis(bool pos, bool neg) => (pos ? 1f : 0f) - (neg ? 1f : 0f);
+    private void ReadInput()
+    {
+        var c = RovInput.Read(out _inputSrc, out _inputDevice);
+        _cSurge = c.surge; _cSway = c.sway; _cHeave = c.heave; _cYaw = c.yaw;
+    }
 
     private unsafe void FixedUpdate()
     {
@@ -213,9 +212,10 @@ public class RovPilotController : MonoBehaviour
             _val = new GUIStyle(GUI.skin.label) { fontSize = 14 };
             _val.normal.textColor = new Color(0.82f, 0.98f, 0.90f);
         }
-        GUI.Box(new Rect(14, 14, 250, 196), GUIContent.none, _box);
-        GUI.Label(new Rect(26, 20, 230, 22), "ROV OPERATOR — v1", _title);
+        GUI.Box(new Rect(14, 14, 254, 220), GUIContent.none, _box);
+        GUI.Label(new Rect(26, 20, 234, 22), "ROV OPERATOR — v1", _title);
         int y = 48;
+        Row(ref y, "INPUT", _inputSrc + " (" + _inputDevice + ")");
         Row(ref y, "DEPTH", _depth.ToString("F2") + " m");
         Row(ref y, "HEADING", _headingDeg.ToString("F0") + "°");
         Row(ref y, "PITCH / ROLL", _pitchDeg.ToString("F0") + "° / " + _rollDeg.ToString("F0") + "°");
@@ -223,8 +223,8 @@ public class RovPilotController : MonoBehaviour
         Row(ref y, "VERT SPEED", _vSpeed.ToString("F2") + " m/s");
         Row(ref y, "CMD S/Y", _cSurge.ToString("F1") + " / " + _cYaw.ToString("F1"));
         Row(ref y, "CMD SW/HV", _cSway.ToString("F1") + " / " + _cHeave.ToString("F1"));
-        GUI.Box(new Rect(14, 220, 250, 24), GUIContent.none, _box);
-        GUI.Label(new Rect(26, 222, 234, 22), "W/S surge  A/D sway  R/F heave  Q/E yaw", _val);
+        GUI.Box(new Rect(14, 244, 254, 24), GUIContent.none, _box);
+        GUI.Label(new Rect(26, 246, 238, 22), "Joystick  or  W/S A/D R/F Q/E", _val);
     }
 
     private void Row(ref int y, string k, string v)

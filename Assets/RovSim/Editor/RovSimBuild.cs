@@ -38,7 +38,7 @@ public static class RovSimBuild
                 scenes = new[] { OutScene },
                 locationPathName = BuildPath,
                 target = BuildTarget.StandaloneLinux64,
-                options = BuildOptions.Development
+                options = BuildOptions.None
             };
             var report = BuildPipeline.BuildPlayer(opts);
             Debug.Log("ROVBUILD_RESULT result=" + report.summary.result +
@@ -58,7 +58,7 @@ public static class RovSimBuild
         rov.transform.rotation = Quaternion.identity;
         ForceMjMeshes(rov);
         var pilot = rov.AddComponent<RovPilotController>();
-        pilot.autoQuitSeconds = 22f;   // verification build self-documents motion then quits
+        pilot.autoQuitSeconds = 0f;    // interactive/demo build: runs until closed
         pilot.logMetrics = true;
 
         var settings = UnityEngine.Object.FindObjectsByType<MjGlobalSettings>(FindObjectsSortMode.None).FirstOrDefault();

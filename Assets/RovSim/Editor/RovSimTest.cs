@@ -132,6 +132,24 @@ public static class RovSimTest
                                $"dHead={r.dHeading:F1} dDepth={r.dDepth:F3} spd {r.startSpeed:F3}->{r.endSpeed:F3} maxTilt={r.maxTilt:F2} maxStep={r.maxStepDelta:F4}");
         }
 
+        // ---- simulated joystick: drive via the exact mapping a real Logitech would use ----
+        var joyCmd = RovInput.MapFlightStick(0f, -1f, 0f, 0f); // simulate: flight stick pushed forward
+        Vector3 jStart = ReadVec(scene.Data->xpos, BaseBodyId);
+        Vector3 jFwd0 = Frame(scene, out _, out _);
+        for (int s = 0; s < Mathf.RoundToInt(2.5f / Dt); s++)
+        {
+            Vector3 fwd = Frame(scene, out Vector3 stbd, out Vector3 up);
+            Vector3 lin = ReadVel(scene, 0), ang = ReadVel(scene, 3);
+            RovDynamics.ComputeWrench(fwd, stbd, up, lin, ang, joyCmd.surge, joyCmd.sway, joyCmd.heave, joyCmd.yaw, p,
+                out Vector3 force, out Vector3 torque);
+            int off = BaseBodyId * 6;
+            scene.Data->xfrc_applied[off + 0] = force.x; scene.Data->xfrc_applied[off + 1] = force.y;
+            scene.Data->xfrc_applied[off + 2] = force.z; scene.Data->xfrc_applied[off + 3] = torque.x;
+            scene.Data->xfrc_applied[off + 4] = torque.y; scene.Data->xfrc_applied[off + 5] = torque.z;
+            scene.StepScene();
+        }
+        float joyFwd = Vector3.Dot(ReadVec(scene.Data->xpos, BaseBodyId) - jStart, jFwd0);
+
         var oracles = new List<(string, bool, string)>();
         void O(string n, bool pass, string d) => oracles.Add((n, pass, d));
 
@@ -154,6 +172,19 @@ public static class RovSimTest
         O("non_teleport", gMaxStep < 0.1f, $"maxStep={gMaxStep:F4}m (<0.1; teleport would jump)");
         O("attitude_stable", gMaxTilt < 25f, $"maxTilt={gMaxTilt:F2}deg");
         O("no_nan_bounded", !gNaN && gMaxSpeed < 5f, $"nan={gNaN} maxSpeed={gMaxSpeed:F3} m/s");
+
+        // simulated-joystick (Logitech) mapping oracles
+        var jf = RovInput.MapFlightStick(0f, -1f, 0f, 0f);
+        O("joy_stick_fwd_surge", jf.surge > 0.9f && Mathf.Abs(jf.sway) < 0.01f, $"stick fwd -> surge={jf.surge:F2}");
+        var jt = RovInput.MapFlightStick(0f, 0f, 1f, 0f);
+        O("joy_stick_twist_yaw", jt.yaw > 0.9f, $"twist -> yaw={jt.yaw:F2}");
+        var jh = RovInput.MapFlightStick(0f, 0f, 0f, 1f);
+        O("joy_stick_throttle_heave", jh.heave > 0.9f, $"throttle -> heave={jh.heave:F2}");
+        var jg = RovInput.MapGamepad(new Vector2(0f, 1f), Vector2.zero, 0f, 0f);
+        O("joy_gamepad_surge", jg.surge > 0.9f, $"L-stick up -> surge={jg.surge:F2}");
+        var jgy = RovInput.MapGamepad(Vector2.zero, new Vector2(1f, 0f), 0f, 0f);
+        O("joy_gamepad_yaw", jgy.yaw > 0.9f, $"R-stick X -> yaw={jgy.yaw:F2}");
+        O("joy_drive_forward", joyFwd > 0.3f, $"sim-joystick stick-fwd -> {joyFwd:F3}m vehicle motion");
 
         bool all = true;
         summary.AppendLine("\n# ORACLES");
