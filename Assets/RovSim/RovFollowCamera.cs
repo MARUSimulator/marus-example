@@ -13,6 +13,6 @@ public class RovFollowCamera : MonoBehaviour
         Vector3 desired = target.position + offset;
         float k = 1f - Mathf.Exp(-smooth * Mathf.Max(Time.deltaTime, 1e-4f));
         transform.position = Vector3.Lerp(transform.position, desired, k);
-        transform.LookAt(target.position + Vector3.up * 0.05f);
+        transform.LookAt(target.position + Vector3.down * 0.7f);   // bias view downward to seabed -> reads underwater, not surface
     }
 }

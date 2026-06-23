@@ -29,9 +29,10 @@ public class RovPilotController : MonoBehaviour
     public string csvPath = "/mnt/storage/marus-rov-sim/logs/rov_session.csv";
 
     [Header("Sensors / mission")]
-    public Vector3 worksite = new Vector3(5f, 2.5f, -3.6f);   // worksite waypoint in MuJoCo world (z up)
+    public Vector3 worksite = new Vector3(6.5f, -4.3f, -3.6f);   // worksite waypoint in MuJoCo world (z up); set by build
     public Camera pipCamera;
     public RenderTexture pipRT;
+    public Camera chaseCamera, frontCamera;
 
     [Header("Headless metrics")]
     public bool logMetrics = false;
@@ -70,6 +71,12 @@ public class RovPilotController : MonoBehaviour
     private float _holdTimer, _missionTime, _stationErrAccum; private int _stationN;
     private bool _logDescend, _logTransit, _logHold, _logComplete;
     private float _distH, _score;
+    private bool _missionArmed;
+
+    // scripted pitch tour (recording mode)
+    private float _tourT;
+    private string _tourCap = "", _tourSub = "";
+    private GUIStyle _capStyle, _subStyle;
 
     private RovDynamics.Params P => new RovDynamics.Params
     {
@@ -131,33 +138,80 @@ public class RovPilotController : MonoBehaviour
 
     private void ReadInput()
     {
-        if (_recording) { _inputSrc = RovInput.Source.Keyboard; _inputDevice = "autopilot"; Guidance(); return; }
+        if (_recording) { _inputSrc = RovInput.Source.Keyboard; _inputDevice = "scripted tour"; Tour(); return; }
         var c = RovInput.Read(out _inputSrc, out _inputDevice);
         _cSurge = c.surge; _cSway = c.sway; _cHeave = c.heave; _cYaw = c.yaw;
     }
 
-    // scripted mission autopilot for the demo recording: descend, transit to the worksite, hold.
     // Closed-loop holonomic homing in the MuJoCo world frame (z up) using the same body axes the
     // thrust is applied along (_fwd/_stbd from xmat), so surge+sway drive straight at the waypoint
-    // regardless of heading. Working in one frame avoids the Unity<->MuJoCo axis mismatch.
-    private void Guidance()
+    // regardless of heading. minDist > 0 lets the sonar phase approach but stop short of the worksite.
+    private void HomeToWorksite(float minDist)
+    {
+        float depth = -_pos.z;
+        float targetDepth = -worksite.z;             // 3.6 m
+        if (depth < targetDepth - 0.15f) _cHeave = -1f;
+        else if (depth > targetDepth + 0.15f) _cHeave = 0.5f;
+        Vector3 e = worksite - _pos; e.z = 0f;
+        float dist = e.magnitude;
+        if (dist <= minDist + 0.05f) return;
+        Vector3 fwdH = _fwd; fwdH.z = 0f; fwdH.Normalize();
+        Vector3 stbdH = _stbd; stbdH.z = 0f; stbdH.Normalize();
+        float drive = Mathf.Clamp01((dist - minDist) / 2.5f);
+        _cSurge = Mathf.Clamp(Vector3.Dot(e.normalized, fwdH) * drive, -1f, 1f);
+        _cSway = Mathf.Clamp(Vector3.Dot(e.normalized, stbdH) * drive, -1f, 1f);
+    }
+
+    private void HoldDepth(float targetDepth)
+    {
+        float depth = -_pos.z;
+        if (depth < targetDepth - 0.15f) _cHeave = -1f;
+        else if (depth > targetDepth + 0.15f) _cHeave = 0.5f;
+    }
+
+    // yaw the ROV to point its forward (MuJoCo body x) at the worksite (so the onboard cam frames it)
+    private void FaceWorksite()
+    {
+        Vector3 e = worksite - _pos; e.z = 0f;
+        if (e.sqrMagnitude < 0.04f) return;
+        Vector3 fwdH = _fwd; fwdH.z = 0f; fwdH.Normalize();
+        Vector3 eDir = e.normalized;
+        float cross = fwdH.x * eDir.y - fwdH.y * eDir.x;   // +z component of fwd x target
+        _cYaw = Mathf.Clamp(cross * 2.5f, -1f, 1f);
+    }
+
+    private void SetView(bool fpv)
+    {
+        if (chaseCamera != null) chaseCamera.enabled = !fpv;
+        if (frontCamera != null) frontCamera.enabled = fpv;
+    }
+
+    // scripted pitch/teaching tour: title -> 6-DOF control -> sonar -> guided mission -> inspection.
+    private void Tour()
     {
         _cSurge = _cSway = _cHeave = _cYaw = 0f;
         if (!_ready) return;
-        float depth = -_pos.z;                       // MuJoCo z up: deeper = more negative
-        float targetDepth = -worksite.z;             // 3.6 m
-        if (depth < targetDepth - 0.15f) _cHeave = -1f;        // go deeper
-        else if (depth > targetDepth + 0.15f) _cHeave = 0.5f;  // rise
-
-        if (_mstate == MState.Complete) return;
-        Vector3 e = worksite - _pos; e.z = 0f;       // horizontal error in MuJoCo XY
-        float dist = e.magnitude;
-        if (dist < 0.05f) return;
-        Vector3 fwdH = _fwd; fwdH.z = 0f; fwdH.Normalize();
-        Vector3 stbdH = _stbd; stbdH.z = 0f; stbdH.Normalize();
-        float drive = Mathf.Clamp01(dist / 2.5f);    // full thrust far out, taper within 2.5 m
-        _cSurge = Mathf.Clamp(Vector3.Dot(e.normalized, fwdH) * drive, -1f, 1f);
-        _cSway = Mathf.Clamp(Vector3.Dot(e.normalized, stbdH) * drive, -1f, 1f);
+        _tourT += Time.deltaTime;
+        float t = _tourT;
+        SetView(t >= 27f && t < 34f);                // onboard pilot cam only during the FPV phase
+        if (t < 4f)                                  // intro: stabilize at depth
+        { _tourCap = "OceanScale ROV Simulator"; _tourSub = "Operator training · real MuJoCo physics"; HoldDepth(3.0f); }
+        else if (t < 8f)                             // surge
+        { _tourCap = "6-DOF Thruster Control · Surge"; _tourSub = "Forward / reverse"; HoldDepth(3.0f); _cSurge = (t < 6f) ? 1f : -1f; }
+        else if (t < 12f)                            // sway
+        { _tourCap = "6-DOF Thruster Control · Sway"; _tourSub = "Lateral translation"; HoldDepth(3.0f); _cSway = (t < 10f) ? 1f : -1f; }
+        else if (t < 16f)                            // heave (bounded so the ROV never breaches the surface)
+        { _tourCap = "6-DOF Thruster Control · Heave"; _tourSub = "Dive & ascend (depth hold)"; HoldDepth(t < 14f ? 6.0f : 2.8f); }
+        else if (t < 21f)                            // yaw
+        { _tourCap = "6-DOF Thruster Control · Yaw"; _tourSub = "Heading / turn rate"; HoldDepth(3.2f); _cYaw = 1f; }
+        else if (t < 27f)                            // sonar approach (stop short at 4.5 m)
+        { _tourCap = "Forward Sonar + Altimeter"; _tourSub = "64-beam FLS · height above seabed"; HomeToWorksite(4.5f); }
+        else if (t < 34f)                            // onboard pilot camera (FPV) — face + hold off the worksite
+        { _tourCap = "Onboard Pilot Camera (FPV)"; _tourSub = "First-person view · inspecting the wellhead"; HomeToWorksite(4.5f); FaceWorksite(); }
+        else if (t < 48f)                            // autonomous guided mission (3rd-person)
+        { _tourCap = "Autonomous Guided Mission"; _tourSub = "Descend → Transit → Hold → Complete"; if (!_missionArmed) { _missionArmed = true; _missionTime = 0f; } HomeToWorksite(0f); }
+        else                                          // inspection / complete
+        { _tourCap = "Station-Keeping & Inspection"; _tourSub = "Hold on worksite · inspection camera"; HomeToWorksite(0f); }
     }
 
     private unsafe void FixedUpdate()
@@ -236,6 +290,7 @@ public class RovPilotController : MonoBehaviour
         if (!_ready) return;
         float depth = -_pos.z;                                  // MuJoCo z up
         Vector3 toWp = worksite - _pos; toWp.z = 0f; _distH = toWp.magnitude;
+        if (_recording && !_missionArmed) return;               // tour: mission stays on STANDBY until its phase
         _missionTime += Time.deltaTime;
         switch (_mstate)
         {
@@ -271,6 +326,8 @@ public class RovPilotController : MonoBehaviour
             _box = new GUIStyle(GUI.skin.box); _box.normal.background = Texture2D.grayTexture;
             _title = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold }; _title.normal.textColor = new Color(1f, 0.84f, 0.38f);
             _val = new GUIStyle(GUI.skin.label) { fontSize = 14 }; _val.normal.textColor = new Color(0.82f, 0.98f, 0.90f);
+            _capStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter }; _capStyle.normal.textColor = new Color(1f, 0.86f, 0.42f);
+            _subStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, alignment = TextAnchor.MiddleCenter }; _subStyle.normal.textColor = new Color(0.85f, 0.97f, 1f);
         }
         // telemetry panel
         GUI.Box(new Rect(14, 14, 254, 242), GUIContent.none, _box);
@@ -291,6 +348,13 @@ public class RovPilotController : MonoBehaviour
         DrawMission();
         DrawSonar();
         DrawPip();
+        if (_recording && !string.IsNullOrEmpty(_tourCap))
+        {
+            float bw = 760f, bx = (Screen.width - bw) / 2f, by = Screen.height - 96f;
+            GUI.Box(new Rect(bx, by, bw, 70), GUIContent.none, _box);
+            GUI.Label(new Rect(bx, by + 6, bw, 36), _tourCap, _capStyle);
+            GUI.Label(new Rect(bx, by + 42, bw, 24), _tourSub, _subStyle);
+        }
     }
 
     private void Row(ref int y, string k, string v)
@@ -309,7 +373,8 @@ public class RovPilotController : MonoBehaviour
         Chk(X + 14, ref my, _mstate > MState.Descend, "1. Descend below 3 m");
         Chk(X + 14, ref my, _mstate > MState.Transit, "2. Transit to worksite (<3 m)");
         Chk(X + 14, ref my, _mstate == MState.Complete, "3. Hold station 8 s");
-        GUI.Label(new Rect(X + 14, my + 4, W - 20, 20), "RANGE  " + _distH.ToString("F1") + " m    STATE  " + _mstate, _val);
+        string state = (_recording && !_missionArmed) ? "STANDBY" : _mstate.ToString();
+        GUI.Label(new Rect(X + 14, my + 4, W - 20, 20), "RANGE  " + _distH.ToString("F1") + " m    STATE  " + state, _val);
         var sc = new GUIStyle(_title) { fontSize = 18 };
         sc.normal.textColor = _mstate == MState.Complete ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.84f, 0.38f);
         GUI.Label(new Rect(X + 14, my + 26, W - 20, 24), "SCORE  " + _score.ToString("F0") + " / 100" + (_mstate == MState.Complete ? "  ✓ COMPLETE" : ""), sc);
@@ -329,17 +394,40 @@ public class RovPilotController : MonoBehaviour
         GUI.Box(new Rect(cx - S / 2f, cy - S / 2f, S, S), GUIContent.none, _box);
         GUI.Label(new Rect(cx - S / 2f + 8, cy - S / 2f + 4, S, 20), "FLS SONAR", _val);
         Vector2 apex = new Vector2(cx, cy + S / 2f - 14f);
-        // range rings
-        for (int r = 1; r <= 3; r++) { } // (kept simple; bars below convey range)
+        float maxLen = S - 30f;
+        // range-ring arcs (always drawn -> reads as a live sonar scope, not an empty box)
+        var ring = new Color(0.25f, 0.75f, 0.75f, 0.5f);
+        for (int r = 1; r <= 3; r++)
+        {
+            float rad = maxLen * r / 3f;
+            Vector2 prev = Vector2.zero; bool has = false;
+            for (float a = -55f; a <= 55f; a += 5.5f)
+            {
+                var p = apex + new Vector2(Mathf.Sin(a * Mathf.Deg2Rad), -Mathf.Cos(a * Mathf.Deg2Rad)) * rad;
+                if (has) DrawLine(prev, p, ring, 1f);
+                prev = p; has = true;
+            }
+        }
+        // edge bearings of the fan
+        DrawLine(apex, apex + new Vector2(Mathf.Sin(-55f * Mathf.Deg2Rad), -Mathf.Cos(-55f * Mathf.Deg2Rad)) * maxLen, ring, 1f);
+        DrawLine(apex, apex + new Vector2(Mathf.Sin(55f * Mathf.Deg2Rad), -Mathf.Cos(55f * Mathf.Deg2Rad)) * maxLen, ring, 1f);
         for (int i = 0; i < SonarRays; i++)
         {
-            float frac = _sonar[i] <= 0f ? 1f : Mathf.Clamp01(_sonar[i] / SonarRange);
+            bool hit = _sonar[i] > 0f;
+            float frac = hit ? Mathf.Clamp01(_sonar[i] / SonarRange) : 1f;
             float ang = Mathf.Lerp(-55f, 55f, i / (float)(SonarRays - 1));
-            float len = (S - 30f) * frac;
             var dir = new Vector2(Mathf.Sin(ang * Mathf.Deg2Rad), -Mathf.Cos(ang * Mathf.Deg2Rad));
-            var col = _sonar[i] <= 0f ? new Color(0.1f, 0.3f, 0.3f, 0.25f) : Color.Lerp(new Color(0.4f, 1f, 0.5f), new Color(1f, 0.9f, 0.3f), 1f - frac);
-            DrawLine(apex, apex + dir * len, col, _sonar[i] <= 0f ? 1f : 2.2f);
+            // faint sweep spoke always visible; bright return + blob where the beam hits
+            DrawLine(apex, apex + dir * maxLen, new Color(0.2f, 0.6f, 0.6f, 0.18f), 1f);
+            if (hit)
+            {
+                var col = Color.Lerp(new Color(0.4f, 1f, 0.5f), new Color(1f, 0.85f, 0.3f), 1f - frac);
+                Vector2 p = apex + dir * (maxLen * frac);
+                DrawLine(apex, p, col, 2.4f);
+                GUI.color = col; GUI.DrawTexture(new Rect(p.x - 2, p.y - 2, 4, 4), _px); GUI.color = Color.white;
+            }
         }
+        GUI.Label(new Rect(cx - S / 2f + 8, cy + S / 2f - 20, S, 18), "contacts: " + _sonarHits + "/" + SonarRays, _val);
     }
 
     private void DrawPip()

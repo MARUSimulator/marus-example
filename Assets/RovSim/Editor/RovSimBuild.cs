@@ -70,6 +70,7 @@ public static class RovSimBuild
         settings.DebugFileName = "rov_sim_generated.xml";
 
         // Reuse MARUS's HDRP camera; disable any follow/agent controller on it, then frame the ROV.
+        Camera frontCam = null;
         var cam = Camera.main ?? UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).FirstOrDefault();
         if (cam != null)
         {
@@ -85,17 +86,27 @@ public static class RovSimBuild
                 .FirstOrDefault(t => t.name.IndexOf("base_link", StringComparison.OrdinalIgnoreCase) >= 0) ?? rov.transform;
             var follow = cam.gameObject.GetComponent<RovFollowCamera>() ?? cam.gameObject.AddComponent<RovFollowCamera>();
             follow.target = baseT;
-            follow.offset = new Vector3(1.7f, 0.9f, -2.2f);
+            follow.offset = new Vector3(1.7f, 1.7f, -3.0f);   // higher + further back -> looks down onto ROV + seabed, surface out of frame
             cam.transform.position = baseT.position + follow.offset;
             cam.transform.LookAt(baseT.position);
             var hdCam = cam.GetComponent<HDAdditionalCameraData>();
             if (hdCam != null) hdCam.antialiasing = HDAdditionalCameraData.AntialiasingMode.TemporalAntialiasing;
+
+            // onboard forward pilot camera (FPV) — full-screen during the onboard-camera tour phase
+            var fgo = new GameObject("Pilot Cam");
+            fgo.transform.SetParent(baseT, false);
+            fgo.transform.localPosition = new Vector3(0f, 0.3f, 0.55f);   // bow, slightly up
+            fgo.transform.localRotation = Quaternion.identity;            // along ROV forward
+            frontCam = fgo.AddComponent<Camera>();
+            frontCam.fieldOfView = 70f; frontCam.depth = 5f; frontCam.enabled = false;
+            if (fgo.GetComponent<HDAdditionalCameraData>() == null) fgo.AddComponent<HDAdditionalCameraData>();
         }
 
         AddUnderwater();
         AddWater();
         AddEnvironment();
-        if (pilot != null) { pilot.worksite = new Vector3(6.5f, -4.3f, 1.5f); SetupPiP(pilot); }
+        // worksite waypoint in MuJoCo world (z up): x,y match the rendered wellhead; z = underwater hold depth
+        if (pilot != null) { pilot.worksite = new Vector3(6.5f, -4.3f, -3.6f); pilot.chaseCamera = cam; pilot.frontCamera = frontCam; SetupPiP(pilot); HideClutter(); }
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene, OutScene);
@@ -104,6 +115,22 @@ public static class RovSimBuild
                   " rovBodies=" + rov.GetComponentsInChildren<MjBody>(true).Length +
                   " rovGeoms=" + rov.GetComponentsInChildren<MjGeom>(true).Length +
                   " cam=" + (cam != null ? cam.name : "none"));
+    }
+
+    // MARUS ships sensor-visualization meshes (camera frusta / coordinate gizmos) that render as
+    // small RGB-axis clutter in the scene. Hide them for a clean customer-facing demo.
+    private static void HideClutter()
+    {
+        foreach (var r in UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+        {
+            var n = r.gameObject.name;
+            var t = r.transform; bool inSensors = false;
+            while (t != null) { if (t.name.IndexOf("sensor", StringComparison.OrdinalIgnoreCase) >= 0) { inSensors = true; break; } t = t.parent; }
+            if (inSensors || n.IndexOf("Camera_mesh", StringComparison.OrdinalIgnoreCase) >= 0
+                          || n.IndexOf("_mesh", StringComparison.OrdinalIgnoreCase) >= 0 && n.IndexOf("fuel", StringComparison.OrdinalIgnoreCase) < 0)
+                r.enabled = false;
+        }
+        Debug.Log("CLUTTER_HIDDEN sensor-visualization meshes disabled");
     }
 
     private static void AddUnderwater()
@@ -115,15 +142,16 @@ public static class RovSimBuild
         var profile = ScriptableObject.CreateInstance<VolumeProfile>();
         vol.sharedProfile = profile;
 
-        // volumetric underwater fog (god-ray scattering + depth color absorption)
+        // volumetric underwater fog (god-ray scattering + depth color absorption) — the water-volume
+        // look: light attenuation + depth color shift + light shafts + particulate scattering.
         var fog = profile.Add<Fog>(true);
-        fog.enabled.Override(false);   // native HDRP WaterSurface handles underwater murk/absorption
+        fog.enabled.Override(true);
         fog.enableVolumetricFog.Override(true);
-        fog.meanFreePath.Override(5f);                  // denser -> visible distance attenuation/murk
-        fog.albedo.Override(new Color(0.10f, 0.46f, 0.52f));
-        fog.tint.Override(new Color(0.05f, 0.22f, 0.28f));
-        fog.anisotropy.Override(0.75f);                 // forward scatter -> visible light shafts
-        fog.multipleScatteringIntensity.Override(0.4f);
+        fog.meanFreePath.Override(8.5f);                // haze visible by ~8 m; seabed/ROV stay readable near
+        fog.albedo.Override(new Color(0.09f, 0.40f, 0.50f));
+        fog.tint.Override(new Color(0.04f, 0.18f, 0.26f));
+        fog.anisotropy.Override(0.78f);                 // forward scatter -> visible light shafts
+        fog.multipleScatteringIntensity.Override(0.55f);
         fog.depthExtent.Override(60f);
         fog.baseHeight.Override(-200f);
         fog.maximumHeight.Override(200f);
@@ -176,7 +204,7 @@ public static class RovSimBuild
         w.caustics = true;
         w.causticsIntensity = 1.0f;
         w.causticsResolution = WaterSurface.WaterCausticsResolution.Caustics512;
-        w.absorptionDistanceMultiplier = 18f;           // near-clear: textured seabed + worksite read crisply, blue only at distance
+        w.absorptionDistanceMultiplier = 4.5f;          // real depth absorption: surface dims, color shifts with depth; seabed/ROV still readable near
         w.underWaterScatteringColor = new Color(0.05f, 0.16f, 0.24f); // bluer, less green wash
         w.underWaterAmbientProbeContribution = 1.0f;
         Debug.Log("WATER_ADDED HDRP native WaterSurface (ocean + underwater + caustics)");
