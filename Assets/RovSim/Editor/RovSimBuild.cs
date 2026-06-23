@@ -57,6 +57,7 @@ public static class RovSimBuild
         rov.transform.position = new Vector3(0f, -3.0f, 0f);   // submerged in the water column
         rov.transform.rotation = Quaternion.identity;
         ForceMjMeshes(rov);
+        StyleRobot(rov);
         var pilot = rov.AddComponent<RovPilotController>();
         pilot.autoQuitSeconds = 0f;    // interactive/demo build: runs until closed
         pilot.logMetrics = true;
@@ -77,9 +78,14 @@ public static class RovSimBuild
                 if (tn.EndsWith("controller") || tn.Contains("follow") || tn.Contains("agent"))
                     mb.enabled = false;
             }
-            cam.transform.position = new Vector3(1.25f, -3.0f, -1.95f);
-            cam.transform.LookAt(new Vector3(0f, -3.4f, 0.1f));   // pitched down: surface out of frame
             cam.fieldOfView = 55f;
+            var baseT = rov.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(t => t.name.IndexOf("base_link", StringComparison.OrdinalIgnoreCase) >= 0) ?? rov.transform;
+            var follow = cam.gameObject.GetComponent<RovFollowCamera>() ?? cam.gameObject.AddComponent<RovFollowCamera>();
+            follow.target = baseT;
+            follow.offset = new Vector3(1.7f, 0.9f, -2.2f);
+            cam.transform.position = baseT.position + follow.offset;
+            cam.transform.LookAt(baseT.position);
         }
 
         AddUnderwater();
@@ -119,6 +125,34 @@ public static class RovSimBuild
             var m = new Material(shader);
             m.SetColor("_BaseColor", new Color(0.16f, 0.18f, 0.14f));
             seabed.GetComponent<Renderer>().sharedMaterial = m;
+        }
+    }
+
+    private static void StyleRobot(GameObject root)
+    {
+        var shader = Shader.Find("HDRP/Lit");
+        if (shader == null) return;
+        foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            var n = r.name.ToLowerInvariant();
+            var m = new Material(shader);
+            Color baseCol; float metal = 0f, smooth = 0.45f; Color emis = Color.black;
+            if (n.Contains("thr")) { baseCol = new Color(0.05f, 0.05f, 0.06f); metal = 0.9f; smooth = 0.7f; }
+            else if (n.Contains("float")) { baseCol = new Color(0.95f, 0.95f, 0.97f); }
+            else if (n.Contains("cam")) { baseCol = new Color(0.02f, 0.02f, 0.03f); smooth = 0.8f; }
+            else if (n.Contains("deck")) { baseCol = new Color(0.12f, 0.13f, 0.15f); metal = 0.6f; }
+            else { baseCol = new Color(1.0f, 0.78f, 0.05f); emis = new Color(1.0f, 0.70f, 0.10f) * 1.6f; } // hull: bright yellow + glow
+            m.SetColor("_BaseColor", baseCol);
+            if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", metal);
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smooth);
+            if (emis != Color.black && m.HasProperty("_EmissiveColor"))
+            {
+                m.SetColor("_EmissiveColor", emis);
+                m.EnableKeyword("_EMISSION");
+                if (m.HasProperty("_UseEmissiveIntensity")) m.SetFloat("_UseEmissiveIntensity", 0f);
+            }
+            r.sharedMaterial = m;
+            r.shadowCastingMode = ShadowCastingMode.On;
         }
     }
 
