@@ -28,7 +28,7 @@ First reproducible demo MVP.
   volumetric fog, marine snow.
 - Scripted teaching/pitch tour: intro → 6-DOF control → forward sonar + altimeter →
   onboard pilot camera → Task 1 Wellhead Inspection (autonomous mission) → Task 2 Pipeline
-  Survey → station-keeping.
+  Survey → Task 3 Sonar Grid Survey (lawnmower) → Task 4 Ascent & Recovery.
 
 ### Input
 - Logitech gamepads F310 / F710 via Unity Input System (XInput); flight-stick path for
@@ -41,5 +41,5 @@ First reproducible demo MVP.
 ### Known limitations (honest)
 - Visual is free-stack (independent review ~5–7/10); production photorealism needs licensed
   water shader + paid subsea assets.
-- One environment with two tasks; full scenario library and Win/macOS packaging are future work.
+- One environment with four scripted tasks; full scenario library and Win/macOS packaging are future work.
 - HOTAS throttle unit (e.g. X56) not yet bound — stick only.

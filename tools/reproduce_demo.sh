@@ -7,14 +7,14 @@
 #   Usage:   UNITY=/path/to/Editor/Unity  DISPLAY_ID=:1  tools/reproduce_demo.sh
 #   Outputs (all under the repo, git-ignored):
 #     Builds/rov_sim_v1.x86_64            standalone Linux player
-#     Builds/OceanScale_ROV_Sim_demo.mp4  the 64 s two-task pitch/teaching video
+#     Builds/OceanScale_ROV_Sim_demo.mp4  the ~90 s four-task pitch/teaching video
 #     Logs/{build,oracle,player}.log      run logs   ·   Logs/rov_session.csv  telemetry
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 UNITY="${UNITY:-/mnt/storage/marus-rov-sim/unity-6000.0.42f1/Editor/Unity}"
 DISPLAY_ID="${DISPLAY_ID:-:1}"
-SECS="${ROVSIM_RECORD_SECONDS:-64}"
+SECS="${ROVSIM_RECORD_SECONDS:-90}"
 BUILD="$REPO/Builds/rov_sim_v1.x86_64"
 FRAMES="$REPO/Builds/recframes"
 mkdir -p "$REPO/Logs" "$REPO/Builds"

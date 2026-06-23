@@ -197,12 +197,20 @@ public class RovPilotController : MonoBehaviour
         { _tourCap = "Forward Sonar + Altimeter"; _tourSub = "64-beam FLS · height above seabed"; HomeToWorksite(4.5f); }
         else if (t < 34f)                            // onboard pilot camera (FPV) — hold off the worksite
         { _tourCap = "Onboard Pilot Camera (FPV)"; _tourSub = "First-person view from the ROV bow"; HomeToWorksite(4.5f); }
-        else if (t < 46f)                            // autonomous guided mission (3rd-person)
+        else if (t < 46f)                            // Task 1: autonomous guided mission (3rd-person)
         { _tourCap = "Task 1 · Wellhead Inspection"; _tourSub = "Auto: Descend → Transit → Hold → Complete"; if (!_missionArmed) { _missionArmed = true; _missionTime = 0f; } HomeToWorksite(0f); }
-        else if (t < 58f)                            // survey the pipeline back toward the manifold
+        else if (t < 58f)                            // Task 2: survey the export pipeline
         { _tourCap = "Task 2 · Pipeline Survey"; _tourSub = "Track the export pipeline along the seabed"; HomeTo(new Vector3(0f, 0f, -3.6f), 0f); }
-        else                                          // station-keeping / inspection
-        { _tourCap = "Station-Keeping & Inspection"; _tourSub = "Hold · forward sonar · inspection camera"; }
+        else if (t < 78f)                            // Task 3: autonomous lawnmower grid survey
+        {
+            _tourCap = "Task 3 · Sonar Grid Survey"; _tourSub = "Autonomous lawnmower survey of the seabed";
+            Vector3[] grid = { new Vector3(4f, 0f, -3.6f), new Vector3(4f, 3.5f, -3.6f), new Vector3(0f, 3.5f, -3.6f), new Vector3(0f, 6f, -3.6f) };
+            HomeTo(grid[Mathf.Clamp((int)((t - 58f) / 5f), 0, grid.Length - 1)], 0f);
+        }
+        else if (t < 86f)                            // Task 4: ascent / recovery
+        { _tourCap = "Task 4 · Ascent & Recovery"; _tourSub = "Controlled ascent toward the surface"; HoldDepth(1.4f); }
+        else                                          // wrap: station-keeping
+        { _tourCap = "OceanScale ROV Simulator"; _tourSub = "Pilot training · 4-task autonomous demo"; HoldDepth(1.6f); }
     }
 
     private unsafe void FixedUpdate()
