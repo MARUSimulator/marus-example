@@ -1,9 +1,24 @@
 # OceanScale ROV Sim — Changelog
 
 Standalone Unity ROV/AUV pilot-training simulator (a fork of MARUSimulator/marus-example,
-branch `rov-sim-v1`). Vehicle control only (no manipulator arm) for v1.
+branch `rov-sim-v1`).
 
 Stack: Unity 6000.0.42f1 LTS · HDRP 17.0.4 · org.mujoco 3.8.1 · free/native assets only.
+
+## 1.1.0 — 2026-06-25  (Phase 1: manipulator arm — closes the #1 gap vs PaleBlue)
+First subsea **intervention** capability: a pilot-controlled manipulator arm on the ROV.
+
+- `staging/rov_v2.xml`: 4-DOF arm (azimuth/shoulder/elbow/wrist) + parallel jaw, position-actuated,
+  appended after the base so all v1 base oracles stay valid. Heavily geared/damped joints
+  (armature 0.15, damping 3) + `integrator="implicit"`, `timestep=0.0025` for org.mujoco stability.
+- `RovManipulator.cs`: pilot rate-control via `MjActuator.Control` (J/L azimuth · I/K shoulder ·
+  U/O elbow · Y/H wrist · B/G jaw open/close) + a manipulator HUD panel. Base held by the pilot
+  controller's station-keeping during intervention.
+- Headless oracle extended to **25/25 ALL_PASS** (+ arm_reaches_pose err 0.006 rad,
+  arm_jaw_opens_closes 1.20→0.008, arm_ee_moves 0.52 m, arm_joint_limits clamp, arm_no_nan).
+- Oracle mirrors the player's angular-rate governor each step (arm-laden base stability).
+- See `docs/PALEBLUE_GAP_AND_BUILD_PLAN.md` for the full gap analysis + remaining phases (P2 mission
+  library, P3 tether/TMS, P4 instructor/fault-insertion, …).
 
 ## 1.0.0-mvp — 2026-06-23
 First reproducible demo MVP.

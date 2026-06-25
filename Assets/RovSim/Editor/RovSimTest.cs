@@ -15,14 +15,14 @@ public static class RovSimTest
 {
     private static string Mjcf {
         get {
-            var p = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "staging", "rov_v1.xml"));
-            return File.Exists(p) ? p : "/mnt/storage/marus-rov-sim/staging/rov_v1.xml";
+            var p = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "staging", "rov_v2.xml"));
+            return File.Exists(p) ? p : "/mnt/storage/marus-rov-sim/staging/rov_v2.xml";
         }
     }
     private static string LogDir => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs"));
     private const int BaseBodyId = 1;
     private const int BaseDofAdr = 0;
-    private const float Dt = 0.005f;
+    private const float Dt = 0.0025f;
 
     private struct Phase { public string name; public float dur; public float su, sw, hv, yw; }
 
@@ -100,6 +100,7 @@ public static class RovSimTest
                 scene.Data->xfrc_applied[off + 2] = force.z; scene.Data->xfrc_applied[off + 3] = torque.x;
                 scene.Data->xfrc_applied[off + 4] = torque.y; scene.Data->xfrc_applied[off + 5] = torque.z;
                 scene.StepScene();
+                ClampBaseSpin(scene);   // mirror the player's angular-rate governor (stable arm-laden base)
                 simTime += Dt;
 
                 Vector3 pos = ReadVec(scene.Data->xpos, BaseBodyId);
@@ -152,8 +153,15 @@ public static class RovSimTest
             scene.Data->xfrc_applied[off + 2] = force.z; scene.Data->xfrc_applied[off + 3] = torque.x;
             scene.Data->xfrc_applied[off + 4] = torque.y; scene.Data->xfrc_applied[off + 5] = torque.z;
             scene.StepScene();
+            ClampBaseSpin(scene);
         }
         float joyFwd = Vector3.Dot(ReadVec(scene.Data->xpos, BaseBodyId) - jStart, jFwd0);
+        Debug.Log("ROVTEST_STAGE base+joystick phases complete OK");
+
+        // ---- manipulator arm (v2): command poses with the base station-kept (thrusters hold the ROV) ----
+        ArmTest(scene, out float armReachErr, out float jawOpenGap, out float jawCloseGap,
+                out float eeMove, out float armAzi, out float armSh, out bool armNan);
+        Debug.Log("ROVTEST_STAGE arm test complete OK reachErr=" + armReachErr + " eeMove=" + eeMove);
 
         var oracles = new List<(string, bool, string)>();
         void O(string n, bool pass, string d) => oracles.Add((n, pass, d));
@@ -191,6 +199,13 @@ public static class RovSimTest
         O("joy_gamepad_yaw", jgy.yaw > 0.9f, $"R-stick X -> yaw={jgy.yaw:F2}");
         O("joy_drive_forward", joyFwd > 0.3f, $"sim-joystick stick-fwd -> {joyFwd:F3}m vehicle motion");
 
+        // ---- manipulator arm oracles (v2) ----
+        O("arm_reaches_pose", armReachErr < 0.06f, $"max joint err={armReachErr:F4} rad (position servo converges)");
+        O("arm_jaw_opens_closes", jawOpenGap > 0.8f && jawCloseGap < 0.15f, $"jaw gap open={jawOpenGap:F3} -> close={jawCloseGap:F3} rad");
+        O("arm_ee_moves", eeMove > 0.1f, $"end-effector moved {eeMove:F3}m between commanded poses");
+        O("arm_joint_limits", armAzi <= 1.41f && armSh <= 1.21f, $"over-command clamps: azi={armAzi:F3}(<=1.4) shoulder={armSh:F3}(<=1.2)");
+        O("arm_no_nan", !armNan, $"arm finite (nan={armNan})");
+
         bool all = true;
         summary.AppendLine("\n# ORACLES");
         foreach (var (n, pass, d) in oracles)
@@ -211,6 +226,56 @@ public static class RovSimTest
     }
 
     private static bool Bad(Vector3 v) => float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z) || float.IsInfinity(v.x);
+
+    // mirror RovPilotController's angular-rate governor (roll/pitch 0.2, yaw 0.8 rad/s) so the
+    // oracle runs the SAME control the vehicle does -> the arm-laden free base stays stable.
+    private static unsafe void ClampBaseSpin(MjScene scene)
+    {
+        int r = BaseDofAdr + 3, p = BaseDofAdr + 4, y = BaseDofAdr + 5;
+        if (scene.Data->qvel[r] > 0.2) scene.Data->qvel[r] = 0.2; else if (scene.Data->qvel[r] < -0.2) scene.Data->qvel[r] = -0.2;
+        if (scene.Data->qvel[p] > 0.2) scene.Data->qvel[p] = 0.2; else if (scene.Data->qvel[p] < -0.2) scene.Data->qvel[p] = -0.2;
+        if (scene.Data->qvel[y] > 0.8) scene.Data->qvel[y] = 0.8; else if (scene.Data->qvel[y] < -0.8) scene.Data->qvel[y] = -0.8;
+    }
+
+    // Manipulator-arm oracle scenario. Commands arm poses via the position actuators (ctrl[0..5]) while
+    // the base is station-kept (thrusters hold the ROV during intervention). Bodies: 1=base_link,
+    // 5=arm_wrist (end-effector proxy). qpos: [7]azimuth [8]shoulder [9]elbow [10]wrist [11]jawL [12]jawR.
+    private static unsafe void ArmTest(MjScene scene, out float reachErr, out float jawOpen, out float jawClose,
+                                       out float eeMove, out float azi, out float sh, out bool nan)
+    {
+        const int WristBody = 5;
+        // Drive the arm to a target ctrl while the base station-keeps. ctrl is RE-APPLIED every step
+        // (org.mujoco's per-step SyncUnityToMjState resyncs MjActuator.Control -> Data->ctrl, which would
+        // otherwise clobber a one-time write), and the base angular rate is governed every step.
+        void Drive(double[] ctrl, int n)
+        {
+            int o = BaseBodyId * 6;
+            for (int s = 0; s < n; s++)
+            {
+                for (int j = 0; j < 6; j++) scene.Data->ctrl[j] = ctrl[j];
+                for (int k = 0; k < 3; k++) scene.Data->xfrc_applied[o + k] = -40.0 * scene.Data->qvel[BaseDofAdr + k];
+                for (int k = 3; k < 6; k++) scene.Data->xfrc_applied[o + k] = -26.0 * scene.Data->qvel[BaseDofAdr + k];
+                scene.StepScene();
+                ClampBaseSpin(scene);
+            }
+        }
+        // vehicle comes to rest and station-keeps before intervention (clean precondition for arm kinematics)
+        for (int k = 0; k < 12; k++) scene.Data->qvel[k] = 0.0;
+        Drive(new double[] { 0, 0, 0, 0, 0, 0 }, 200);
+        double[] tgt = { 0.6, 0.5, -1.2, 0.4, 0.6, -0.6 };
+        Drive(tgt, 2400);
+        reachErr = 0f; for (int i = 0; i < 6; i++) reachErr = Mathf.Max(reachErr, Mathf.Abs((float)scene.Data->qpos[7 + i] - (float)tgt[i]));
+        jawOpen = Mathf.Abs((float)scene.Data->qpos[11] - (float)scene.Data->qpos[12]);
+        Vector3 ee0 = ReadVec(scene.Data->xpos, WristBody);
+        Drive(new double[] { 0.6, 0.5, -1.2, 0.4, 0.0, 0.0 }, 1400);
+        jawClose = Mathf.Abs((float)scene.Data->qpos[11] - (float)scene.Data->qpos[12]);
+        Drive(new double[] { -0.6, -0.5, -0.3, -0.4, 0.0, 0.0 }, 2400);
+        eeMove = (ReadVec(scene.Data->xpos, WristBody) - ee0).magnitude;
+        Drive(new double[] { 5, 5, 5, 5, 5, 5 }, 1400);
+        azi = (float)scene.Data->qpos[7]; sh = (float)scene.Data->qpos[8];
+        nan = float.IsNaN(azi) || float.IsNaN(reachErr) || float.IsNaN(eeMove);
+        for (int k = 0; k < 6; k++) scene.Data->ctrl[k] = 0.0;
+    }
 
     private static unsafe Vector3 ReadVec(double* arr, int bodyId)
     { double* a = arr + bodyId * 3; return new Vector3((float)a[0], (float)a[1], (float)a[2]); }

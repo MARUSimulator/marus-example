@@ -99,7 +99,7 @@ public class RovPilotController : MonoBehaviour
 
     private void Start()
     {
-        Time.fixedDeltaTime = 0.005f;
+        Time.fixedDeltaTime = 0.0025f;   // match staging/rov_v2.xml timestep (arm stability)
         _clock.Start();
         _px = Texture2D.whiteTexture;
         _recordDir = Environment.GetEnvironmentVariable("ROVSIM_RECORD");

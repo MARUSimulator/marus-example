@@ -18,7 +18,7 @@ public static class RovSimBuild
         var p = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", rel));
         return System.IO.File.Exists(p) ? p : "/mnt/storage/marus-rov-sim/" + rel;
     }
-    private static string Mjcf => RepoFile("staging/rov_v1.xml");
+    private static string Mjcf => RepoFile("staging/rov_v2.xml");   // v2 = vehicle + manipulator arm
     // environment selector (set ROVSIM_SCENE=deepwater for the clear blue-water site)
     private static string Scene => (Environment.GetEnvironmentVariable("ROVSIM_SCENE") ?? "harbor").ToLowerInvariant();
     private static bool DeepWater => Scene == "deepwater";
@@ -73,6 +73,7 @@ public static class RovSimBuild
         var pilot = rov.AddComponent<RovPilotController>();
         pilot.autoQuitSeconds = 0f;    // interactive/demo build: runs until closed
         pilot.logMetrics = true;
+        rov.AddComponent<RovManipulator>();   // v2: pilot-controlled 4-DOF + jaw manipulator arm
 
         var settings = UnityEngine.Object.FindObjectsByType<MjGlobalSettings>(FindObjectsSortMode.None).FirstOrDefault();
         if (settings == null) settings = new GameObject("MuJoCo Global Settings").AddComponent<MjGlobalSettings>();
