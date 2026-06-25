@@ -5,6 +5,16 @@ branch `rov-sim-v1`).
 
 Stack: Unity 6000.0.42f1 LTS · HDRP 17.0.4 · org.mujoco 3.8.1 · free/native assets only.
 
+## 1.2.0 — 2026-06-25  (Hercules dual-arm work-class ROV — from the customer resource catalog)
+Real recognizable vehicle that matches the v1.1 manipulator arm.
+- Integrated **EV Nautilus "ROV Hercules"** (Sketchfab, **CC-BY-4.0**, credit EVNautilus) as the
+  default vehicle: glTF→OBJ (382k faces), Z-up→Unity orientation, auto-scaled ~0.95 m, single
+  industrial HDRP material (model has no UV/texture). `ROVSIM_VEHICLE=fuel` still selects the Fuel ROV.
+- `RovSimBuild.SwapInHerculesRov` + `ROVSIM_VEHICLE` selector. Attribution: `Models/hercules/LICENSE_CC-BY_EVNautilus.txt`.
+- Verified: build Succeeded (HERCULES_SWAPPED); real render (DISPLAY=:1, 300 frames); **cross-model
+  review (Kimi K2.6 via NVIDIA NIM) = "detailed realistic work-class ROV, upright, believable subsea
+  worksite"** (honestly: moderately game-like, free-stack ceiling). Manipulator HUD shown.
+
 ## 1.1.0 — 2026-06-25  (Phase 1: manipulator arm — closes the #1 gap vs PaleBlue)
 First subsea **intervention** capability: a pilot-controlled manipulator arm on the ROV.
 

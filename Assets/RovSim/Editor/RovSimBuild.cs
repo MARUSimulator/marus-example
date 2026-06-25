@@ -22,6 +22,8 @@ public static class RovSimBuild
     // environment selector (set ROVSIM_SCENE=deepwater for the clear blue-water site)
     private static string Scene => (Environment.GetEnvironmentVariable("ROVSIM_SCENE") ?? "harbor").ToLowerInvariant();
     private static bool DeepWater => Scene == "deepwater";
+    // vehicle visual selector (ROVSIM_VEHICLE=hercules for the EV Nautilus dual-arm work-class ROV; default = fuel)
+    private static string Vehicle => (Environment.GetEnvironmentVariable("ROVSIM_VEHICLE") ?? "hercules").ToLowerInvariant();
     private const string BaseScene = "Assets/Scenes/ExampleScene.unity";
     private const string OutScene = "Assets/RovSim/rov_sim_v1.unity";
     private static string BuildPath => System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", "Builds", "rov_sim_v1.x86_64"));
@@ -69,7 +71,7 @@ public static class RovSimBuild
         rov.transform.rotation = Quaternion.identity;
         ForceMjMeshes(rov);
         StyleRobot(rov);
-        SwapInFuelRov(rov);
+        if (Vehicle == "hercules") SwapInHerculesRov(rov); else SwapInFuelRov(rov);
         var pilot = rov.AddComponent<RovPilotController>();
         pilot.autoQuitSeconds = 0f;    // interactive/demo build: runs until closed
         pilot.logMetrics = true;
@@ -515,6 +517,46 @@ public static class RovSimBuild
         }
         Debug.Log("FUELROV_SWAPPED maxDim=" + maxDim.ToString("F3") +
                   " renderers=" + vis.GetComponentsInChildren<MeshRenderer>(true).Length);
+    }
+
+    // EV Nautilus "ROV Hercules" (Sketchfab, CC-BY-4.0) — a real dual-arm work-class ROV that matches the
+    // manipulator arm (v2). glTF->OBJ (382k faces, no UV/texture) -> single industrial material applied here.
+    private static void SwapInHerculesRov(GameObject rov)
+    {
+        const string obj = "Assets/RovSim/Models/hercules/hercules.obj";
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(obj);
+        if (prefab == null) { Debug.LogError("HERCULES_MISSING " + obj + " -> falling back to Fuel ROV"); SwapInFuelRov(rov); return; }
+
+        var baseT = rov.GetComponentsInChildren<Transform>(true)
+            .FirstOrDefault(t => t.name.IndexOf("base_link", StringComparison.OrdinalIgnoreCase) >= 0) ?? rov.transform;
+        foreach (var r in rov.GetComponentsInChildren<MeshRenderer>(true)) r.enabled = false;   // hide primitive boxes (keep MjGeom physics)
+
+        var vis = (GameObject)UnityEngine.Object.Instantiate(prefab);
+        vis.name = "hercules_visual";
+        vis.transform.SetParent(baseT, false);
+        vis.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);   // STL is Z-up -> Unity Y-up (heading tuned after render)
+        vis.transform.localScale = Vector3.one;
+
+        var shader = Shader.Find("HDRP/Lit");
+        if (shader != null)
+        {
+            var body = new Material(shader) { name = "M_hercules" };
+            body.SetColor("_BaseColor", new Color(0.88f, 0.88f, 0.90f));   // EV Nautilus Hercules = light/white body
+            if (body.HasProperty("_Metallic")) body.SetFloat("_Metallic", 0.35f);
+            if (body.HasProperty("_Smoothness")) body.SetFloat("_Smoothness", 0.42f);
+            foreach (var r in vis.GetComponentsInChildren<MeshRenderer>(true)) { r.sharedMaterial = body; r.enabled = true; r.shadowCastingMode = ShadowCastingMode.On; }
+        }
+
+        var b = CombinedBounds(vis);
+        float maxDim = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
+        if (maxDim > 1e-3f)
+        {
+            vis.transform.localScale = Vector3.one * (0.95f / maxDim);   // ~0.95 m longest dim, like the Fuel ROV
+            var b2 = CombinedBounds(vis);
+            vis.transform.position += baseT.position - b2.center;        // center on base_link
+        }
+        Debug.Log("HERCULES_SWAPPED maxDim=" + maxDim.ToString("F3") +
+                  " renderers=" + vis.GetComponentsInChildren<MeshRenderer>(true).Length + " credit=EVNautilus(CC-BY-4.0)");
     }
 
     private static Bounds CombinedBounds(GameObject go)
