@@ -73,9 +73,24 @@ public static class RovSimBuild
             if (baseT != null) { var root = baseT.root; root.position += (rovPos - baseT.position); }
             var cam = Camera.main ?? UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).FirstOrDefault();
             var follow = cam.GetComponent<RovFollowCamera>(); if (follow != null) follow.enabled = false;
-            // dim the ROV's own work-lights so the small yellow vehicle doesn't blow out under auto-exposure
+            // POLISH: make every spot light cast a visible volumetric shaft; ROV work-lights as bright beams
             foreach (var wl in UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
-                if (wl.name.StartsWith("rov_worklight")) { var h = wl.GetComponent<HDAdditionalLightData>(); if (h != null) h.SetIntensity(550f, LightUnit.Lumen); }
+            {
+                var h = wl.GetComponent<HDAdditionalLightData>(); if (h == null) continue;
+                if (wl.type == LightType.Spot) { h.affectsVolumetric = true; h.volumetricDimmer = 10f; }
+                if (wl.name.StartsWith("rov_worklight")) { h.SetIntensity(1600f, LightUnit.Lumen); wl.shadows = LightShadows.Soft; }
+            }
+            // densify the existing underwater volumetric fog so light shafts/god-rays read
+            foreach (var v in UnityEngine.Object.FindObjectsByType<Volume>(FindObjectsSortMode.None))
+            {
+                var prf = v.sharedProfile ?? v.profile;
+                if (prf != null && prf.TryGet<Fog>(out var fog))
+                {
+                    fog.meanFreePath.Override(6.5f);              // denser -> visible shafts (not so dense it hazes the ROV)
+                    fog.multipleScatteringIntensity.Override(0.9f);
+                    fog.anisotropy.Override(0.86f);              // strong forward scatter = pronounced god-rays
+                }
+            }
             cam.transform.position = rovPos + new Vector3(-2.3f, 0.7f, 1.9f);
             cam.transform.LookAt(rovPos + new Vector3(0.7f, -0.1f, -0.2f));   // ROV subject, pile face as backdrop
             // key light BEHIND the camera (out of frame) as a wide spot toward the ROV+pile — reveals without bloom hotspot
@@ -99,6 +114,24 @@ public static class RovSimBuild
             var exp = prof.Add<UnityEngine.Rendering.HighDefinition.Exposure>(true);
             exp.mode.Override(UnityEngine.Rendering.HighDefinition.ExposureMode.Fixed);
             exp.fixedExposure.Override(5.2f);   // EV; higher = darker (tame the bright ROV)
+            // god-ray shaft from above-behind, angled down through the frame (volumetric spot)
+            var sgo = new GameObject("cap_godray");
+            sgo.transform.position = rovPos + new Vector3(-1.2f, 5.5f, 1.2f);
+            sgo.transform.rotation = Quaternion.LookRotation(((rovPos + new Vector3(0.6f, -1f, -0.3f)) - sgo.transform.position).normalized);
+            var SL = sgo.AddComponent<Light>(); SL.type = LightType.Spot; SL.spotAngle = 40f; SL.innerSpotAngle = 8f;
+            SL.range = 20f; SL.color = new Color(0.82f, 0.9f, 1f);
+            var shd = sgo.AddComponent<HDAdditionalLightData>(); shd.SetIntensity(4200f, LightUnit.Lumen);
+            shd.affectsVolumetric = true; shd.volumetricDimmer = 14f; SL.shadows = LightShadows.Soft;
+            // marine snow: boost + Simulate() — in editor batchmode (no play) the PS never emits otherwise
+            foreach (var ps in UnityEngine.Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+            {
+                var main = ps.main; main.maxParticles = 7000; main.startLifetime = 12f;
+                main.startSize = new ParticleSystem.MinMaxCurve(0.015f, 0.045f);
+                var em = ps.emission; em.rateOverTime = 900f;
+                var shp = ps.shape; shp.shapeType = ParticleSystemShapeType.Box; shp.scale = new Vector3(10f, 8f, 10f);
+                ps.transform.position = cam.transform.position + cam.transform.forward * 3.2f;
+                ps.Clear(true); ps.Simulate(11f, true, true);
+            }
             int W = 1920, H = 1080;
             var rt = new RenderTexture(W, H, 24) { name = "cap_rt" }; rt.antiAliasing = 1; rt.Create();
             cam.targetTexture = rt;
