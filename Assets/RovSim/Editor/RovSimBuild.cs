@@ -529,7 +529,31 @@ public static class RovSimBuild
 
         var baseT = rov.GetComponentsInChildren<Transform>(true)
             .FirstOrDefault(t => t.name.IndexOf("base_link", StringComparison.OrdinalIgnoreCase) >= 0) ?? rov.transform;
-        foreach (var r in rov.GetComponentsInChildren<MeshRenderer>(true)) r.enabled = false;   // hide primitive boxes (keep MjGeom physics)
+
+        // Replace ONLY the base hull/thrusters/floats with the Hercules mesh, but KEEP the functional
+        // manipulator arm visible — its MjGeom GameObjects (g_azi/g_upper/g_fore/g_wrist/g_jaw_*) articulate
+        // with the physics, so the pilot sees the arm actually move. Style them as an industrial manipulator.
+        var armShader = Shader.Find("HDRP/Lit");
+        Material armMat = null, jawMat = null;
+        if (armShader != null)
+        {
+            armMat = new Material(armShader) { name = "M_herc_arm" };
+            armMat.SetColor("_BaseColor", new Color(0.92f, 0.46f, 0.04f));   // manipulator orange
+            if (armMat.HasProperty("_Metallic")) armMat.SetFloat("_Metallic", 0.35f);
+            if (armMat.HasProperty("_Smoothness")) armMat.SetFloat("_Smoothness", 0.42f);
+            jawMat = new Material(armShader) { name = "M_herc_jaw" };
+            jawMat.SetColor("_BaseColor", new Color(0.09f, 0.09f, 0.11f));
+            if (jawMat.HasProperty("_Metallic")) jawMat.SetFloat("_Metallic", 0.85f);
+            if (jawMat.HasProperty("_Smoothness")) jawMat.SetFloat("_Smoothness", 0.55f);
+        }
+        foreach (var r in rov.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            var n = r.name.ToLowerInvariant();
+            bool isJaw = n.Contains("jaw");
+            bool isArm = n.Contains("azi") || n.Contains("upper") || n.Contains("fore") || n.Contains("wrist") || isJaw;
+            if (isArm) { r.enabled = true; if (armMat != null) r.sharedMaterial = isJaw ? jawMat : armMat; r.shadowCastingMode = ShadowCastingMode.On; }
+            else r.enabled = false;   // hull/deck/thrusters/floats -> replaced by the Hercules mesh
+        }
 
         var vis = (GameObject)UnityEngine.Object.Instantiate(prefab);
         vis.name = "hercules_visual";
@@ -537,14 +561,41 @@ public static class RovSimBuild
         vis.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);   // STL is Z-up -> Unity Y-up (heading tuned after render)
         vis.transform.localScale = Vector3.one;
 
+        // two-tone work-class palette (the OBJ is split into 2 submeshes: [0]=buoyancy top, [1]=frame/body)
         var shader = Shader.Find("HDRP/Lit");
         if (shader != null)
         {
-            var body = new Material(shader) { name = "M_hercules" };
-            body.SetColor("_BaseColor", new Color(0.88f, 0.88f, 0.90f));   // EV Nautilus Hercules = light/white body
-            if (body.HasProperty("_Metallic")) body.SetFloat("_Metallic", 0.35f);
-            if (body.HasProperty("_Smoothness")) body.SetFloat("_Smoothness", 0.42f);
-            foreach (var r in vis.GetComponentsInChildren<MeshRenderer>(true)) { r.sharedMaterial = body; r.enabled = true; r.shadowCastingMode = ShadowCastingMode.On; }
+            Material Mk(Color c, float metal, float smooth, string nm)
+            {
+                var m2 = new Material(shader) { name = nm };
+                m2.SetColor("_BaseColor", c);
+                if (m2.HasProperty("_Metallic")) m2.SetFloat("_Metallic", metal);
+                if (m2.HasProperty("_Smoothness")) m2.SetFloat("_Smoothness", smooth);
+                return m2;
+            }
+            var buoy = Mk(new Color(0.84f, 0.65f, 0.07f), 0.0f, 0.14f, "M_herc_buoyancy");   // syntactic-foam (matte, slightly dirty yellow)
+            var frame = Mk(new Color(0.10f, 0.11f, 0.13f), 0.6f, 0.30f, "M_herc_frame");     // wet dark metal (matte, not plasticky)
+            foreach (var r in vis.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                r.enabled = true; r.shadowCastingMode = ShadowCastingMode.On;
+                var mf = r.GetComponent<MeshFilter>();
+                int subs = (mf != null && mf.sharedMesh != null) ? mf.sharedMesh.subMeshCount : 1;
+                r.sharedMaterials = subs >= 2 ? new[] { buoy, frame } : new[] { frame };
+            }
+        }
+
+        // forward ROV work-lights (two spots) — the vehicle reads as a working ROV and lights the worksite
+        for (int i = 0; i < 2; i++)
+        {
+            var lgo = new GameObject("rov_worklight_" + i);
+            lgo.transform.SetParent(baseT, false);
+            lgo.transform.localPosition = new Vector3(i == 0 ? -0.20f : 0.20f, 0.06f, 0.30f);
+            lgo.transform.localRotation = Quaternion.Euler(8f, 0f, 0f);   // forward + slightly down, toward the work area
+            var L = lgo.AddComponent<Light>();
+            L.type = LightType.Spot; L.spotAngle = 44f; L.innerSpotAngle = 22f; L.range = 6f; L.color = new Color(0.90f, 0.95f, 1f);
+            var hd = lgo.AddComponent<HDAdditionalLightData>();
+            hd.SetIntensity(2000f, LightUnit.Lumen);
+            hd.affectsVolumetric = true; hd.volumetricDimmer = 0.5f; L.shadows = LightShadows.None;
         }
 
         var b = CombinedBounds(vis);
