@@ -775,15 +775,13 @@ public static class RovSimBuild
             hd.affectsVolumetric = true; hd.volumetricDimmer = 0.5f; L.shadows = LightShadows.None;
         }
 
+        // TRUE customer-CAD scale: mesh is in mm -> x0.001 = real size (~0.907 x 1.091 x 1.131 m). Do NOT
+        // force-normalize to a fixed length (that imposed a wrong size); use the actual CAD dimensions.
+        vis.transform.localScale = Vector3.one * 0.001f;
         var b = CombinedBounds(vis);
         float maxDim = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
-        if (maxDim > 1e-3f)
-        {
-            vis.transform.localScale = Vector3.one * (1.05f / maxDim);   // ~1.05 m longest dim (their ~1 m inspection ROV)
-            var b2 = CombinedBounds(vis);
-            vis.transform.position += baseT.position - b2.center;
-        }
-        Debug.Log("SMARTFLY_SWAPPED maxDim=" + maxDim.ToString("F3") +
+        vis.transform.position += baseT.position - b.center;
+        Debug.Log("SMARTFLY_SWAPPED trueScale=0.001 maxDim_m=" + maxDim.ToString("F3") +
                   " renderers=" + vis.GetComponentsInChildren<MeshRenderer>(true).Length + " src=customerCAD(智海ROV.STEP)");
     }
 
