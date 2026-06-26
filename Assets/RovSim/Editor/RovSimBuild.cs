@@ -60,6 +60,62 @@ public static class RovSimBuild
         catch (Exception ex) { Debug.LogError("ROVBUILD_EXCEPTION " + ex); EditorApplication.Exit(1); }
     }
 
+    // Editor-side HDRP still capture — bypasses BuildPlayer (whose ILPP step crashes in this env).
+    public static void CaptureStill()
+    {
+        try
+        {
+            CreateScene();
+            var pilePos = new Vector3(9.1f, -0.3f, -3.6f);     // monopile center (radius ~3 m -> face at x~6.1)
+            var rovPos  = new Vector3(4.9f, -1.4f, -3.6f);      // ROV ~1.2 m off the pile face, mid-water
+            var baseT = UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .FirstOrDefault(t => t.name.IndexOf("base_link", StringComparison.OrdinalIgnoreCase) >= 0);
+            if (baseT != null) { var root = baseT.root; root.position += (rovPos - baseT.position); }
+            var cam = Camera.main ?? UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).FirstOrDefault();
+            var follow = cam.GetComponent<RovFollowCamera>(); if (follow != null) follow.enabled = false;
+            // dim the ROV's own work-lights so the small yellow vehicle doesn't blow out under auto-exposure
+            foreach (var wl in UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+                if (wl.name.StartsWith("rov_worklight")) { var h = wl.GetComponent<HDAdditionalLightData>(); if (h != null) h.SetIntensity(550f, LightUnit.Lumen); }
+            cam.transform.position = rovPos + new Vector3(-2.3f, 0.7f, 1.9f);
+            cam.transform.LookAt(rovPos + new Vector3(0.7f, -0.1f, -0.2f));   // ROV subject, pile face as backdrop
+            // key light BEHIND the camera (out of frame) as a wide spot toward the ROV+pile — reveals without bloom hotspot
+            var aim = rovPos + new Vector3(1.4f, -0.4f, 0f);
+            var kgo = new GameObject("cap_key");
+            kgo.transform.position = cam.transform.position + cam.transform.up * 0.5f - cam.transform.right * 0.6f;
+            kgo.transform.rotation = Quaternion.LookRotation((aim - kgo.transform.position).normalized);
+            var KL = kgo.AddComponent<Light>(); KL.type = LightType.Spot; KL.spotAngle = 70f; KL.innerSpotAngle = 30f;
+            KL.range = 22f; KL.spotAngle = 96f; KL.color = new Color(0.92f, 0.96f, 1f);
+            var khd = kgo.AddComponent<HDAdditionalLightData>(); khd.SetIntensity(1700f, LightUnit.Lumen);
+            khd.affectsVolumetric = true; khd.volumetricDimmer = 0.4f; KL.shadows = LightShadows.None;
+            var pgo = new GameObject("cap_pile_light");
+            pgo.transform.position = new Vector3(6.0f, -1.2f, -3.6f);
+            pgo.transform.rotation = Quaternion.LookRotation((pilePos - pgo.transform.position).normalized);
+            var PL = pgo.AddComponent<Light>(); PL.type = LightType.Spot; PL.spotAngle = 80f; PL.range = 10f; PL.color = new Color(0.85f, 0.92f, 1f);
+            var phd = pgo.AddComponent<HDAdditionalLightData>(); phd.SetIntensity(1500f, LightUnit.Lumen); phd.affectsVolumetric = true; PL.shadows = LightShadows.None;
+            // fixed exposure — auto-exposure keys off the dark water and blows out the lit ROV
+            var evgo = new GameObject("cap_exposure");
+            var vol = evgo.AddComponent<Volume>(); vol.isGlobal = true; vol.priority = 1000f;
+            var prof = ScriptableObject.CreateInstance<VolumeProfile>(); vol.profile = prof;
+            var exp = prof.Add<UnityEngine.Rendering.HighDefinition.Exposure>(true);
+            exp.mode.Override(UnityEngine.Rendering.HighDefinition.ExposureMode.Fixed);
+            exp.fixedExposure.Override(5.2f);   // EV; higher = darker (tame the bright ROV)
+            int W = 1920, H = 1080;
+            var rt = new RenderTexture(W, H, 24) { name = "cap_rt" }; rt.antiAliasing = 1; rt.Create();
+            cam.targetTexture = rt;
+            for (int i = 0; i < 16; i++) cam.Render();
+            RenderTexture.active = rt;
+            var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, W, H), 0, 0); tex.Apply();
+            RenderTexture.active = null; cam.targetTexture = null;
+            var outp = RepoFile("Builds/smartfly_hdrp.png");
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(outp));
+            System.IO.File.WriteAllBytes(outp, tex.EncodeToPNG());
+            Debug.Log("CAPTURE_DONE out=" + outp + " bytes=" + new System.IO.FileInfo(outp).Length);
+            EditorApplication.Exit(0);
+        }
+        catch (Exception ex) { Debug.LogError("CAPTURE_EXCEPTION " + ex); EditorApplication.Exit(1); }
+    }
+
     private static void CreateScene()
     {
         var scene = EditorSceneManager.OpenScene(BaseScene, OpenSceneMode.Single);
@@ -71,7 +127,7 @@ public static class RovSimBuild
         rov.transform.rotation = Quaternion.identity;
         ForceMjMeshes(rov);
         StyleRobot(rov);
-        if (Vehicle == "hercules") SwapInHerculesRov(rov); else SwapInFuelRov(rov);
+        if (Vehicle == "hercules") SwapInHerculesRov(rov); else if (Vehicle == "smartfly") SwapInSmartFlyRov(rov); else SwapInFuelRov(rov);
         var pilot = rov.AddComponent<RovPilotController>();
         pilot.autoQuitSeconds = 0f;    // interactive/demo build: runs until closed
         pilot.logMetrics = true;
@@ -323,6 +379,23 @@ public static class RovSimBuild
         seabed.AddComponent<MeshFilter>().sharedMesh = mesh;
         var sr = seabed.AddComponent<MeshRenderer>(); sr.sharedMaterial = sand; sr.receiveShadows = true;
         seabed.AddComponent<MeshCollider>().sharedMesh = mesh;   // sonar/altimeter raycast target
+
+        // offshore wind-turbine monopile foundation (the inspection target) at the worksite
+        var monoMat = MakeMat(new Color(0.34f, 0.36f, 0.39f), 0.65f, 0.45f, "M_monopile");
+        var collarMat = MakeMat(new Color(0.86f, 0.62f, 0.06f), 0.2f, 0.4f, "M_tp_collar");
+        var worksite = new Vector3(6.5f, floorY, -3.6f);
+        var pile = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        pile.name = "wt_monopile";
+        pile.transform.position = worksite + new Vector3(2.6f, 4.0f, 0f);   // beside the worksite, spanning seabed->surface
+        pile.transform.localScale = new Vector3(6f, 6f, 6f);                // ~6 m diameter, ~12 m tall
+        pile.GetComponent<Renderer>().sharedMaterial = monoMat;
+        pile.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.On;
+        var collar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);   // transition-piece collar
+        collar.name = "wt_transition_piece";
+        collar.transform.SetParent(pile.transform, false);
+        collar.transform.localScale = new Vector3(1.12f, 0.10f, 1.12f);
+        collar.transform.localPosition = new Vector3(0f, 0.30f, 0f);
+        collar.GetComponent<Renderer>().sharedMaterial = collarMat;
 
         // scattered rocks
         var rng = new System.Random(7); var rocks = new GameObject("boulders");
@@ -608,6 +681,77 @@ public static class RovSimBuild
         }
         Debug.Log("HERCULES_SWAPPED maxDim=" + maxDim.ToString("F3") +
                   " renderers=" + vis.GetComponentsInChildren<MeshRenderer>(true).Length + " credit=EVNautilus(CC-BY-4.0)");
+    }
+
+    private static void SwapInSmartFlyRov(GameObject rov)
+    {
+        // Customer SmartFly/智海 inspection ROV — body mesh from their own CAD (智海ROV.STEP).
+        const string obj = "Assets/RovSim/Models/smartfly/smartfly_body.obj";
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(obj);
+        if (prefab == null) { Debug.LogError("SMARTFLY_MISSING " + obj + " -> falling back to Fuel ROV"); SwapInFuelRov(rov); return; }
+
+        var baseT = rov.GetComponentsInChildren<Transform>(true)
+            .FirstOrDefault(t => t.name.IndexOf("base_link", StringComparison.OrdinalIgnoreCase) >= 0) ?? rov.transform;
+
+        foreach (var r in rov.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            var n = r.name.ToLowerInvariant();
+            bool isArm = n.Contains("azi") || n.Contains("upper") || n.Contains("fore") || n.Contains("wrist") || n.Contains("jaw");
+            r.enabled = false;                       // hide the generic rov_v2 hull/arm; SmartFly has no arm
+            if (isArm) r.enabled = false;
+        }
+
+        var vis = (GameObject)UnityEngine.Object.Instantiate(prefab);
+        vis.name = "smartfly_visual";
+        vis.transform.SetParent(baseT, false);
+        vis.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);   // mesh Z-up -> Unity Y-up
+        vis.transform.localScale = Vector3.one;
+
+        var shader = Shader.Find("HDRP/Lit");
+        if (shader != null)
+        {
+            Material Mk(Color c, float metal, float smooth, string nm)
+            {
+                var m2 = new Material(shader) { name = nm };
+                m2.SetColor("_BaseColor", c);
+                if (m2.HasProperty("_Metallic")) m2.SetFloat("_Metallic", metal);
+                if (m2.HasProperty("_Smoothness")) m2.SetFloat("_Smoothness", smooth);
+                return m2;
+            }
+            var bodyMat = Mk(new Color(0.90f, 0.72f, 0.10f), 0.25f, 0.20f, "M_smartfly_body");   // inspection-yellow
+            var frameMat = Mk(new Color(0.10f, 0.11f, 0.13f), 0.6f, 0.30f, "M_smartfly_frame");
+            foreach (var r in vis.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                r.enabled = true; r.shadowCastingMode = ShadowCastingMode.On;
+                var mf = r.GetComponent<MeshFilter>();
+                int subs = (mf != null && mf.sharedMesh != null) ? mf.sharedMesh.subMeshCount : 1;
+                r.sharedMaterials = subs >= 2 ? new[] { bodyMat, frameMat } : new[] { bodyMat };
+            }
+        }
+
+        for (int i = 0; i < 2; i++)
+        {
+            var lgo = new GameObject("rov_worklight_" + i);
+            lgo.transform.SetParent(baseT, false);
+            lgo.transform.localPosition = new Vector3(i == 0 ? -0.20f : 0.20f, 0.06f, 0.30f);
+            lgo.transform.localRotation = Quaternion.Euler(8f, 0f, 0f);
+            var L = lgo.AddComponent<Light>();
+            L.type = LightType.Spot; L.spotAngle = 44f; L.innerSpotAngle = 22f; L.range = 6f; L.color = new Color(0.90f, 0.95f, 1f);
+            var hd = lgo.AddComponent<HDAdditionalLightData>();
+            hd.SetIntensity(2000f, LightUnit.Lumen);
+            hd.affectsVolumetric = true; hd.volumetricDimmer = 0.5f; L.shadows = LightShadows.None;
+        }
+
+        var b = CombinedBounds(vis);
+        float maxDim = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
+        if (maxDim > 1e-3f)
+        {
+            vis.transform.localScale = Vector3.one * (1.05f / maxDim);   // ~1.05 m longest dim (their ~1 m inspection ROV)
+            var b2 = CombinedBounds(vis);
+            vis.transform.position += baseT.position - b2.center;
+        }
+        Debug.Log("SMARTFLY_SWAPPED maxDim=" + maxDim.ToString("F3") +
+                  " renderers=" + vis.GetComponentsInChildren<MeshRenderer>(true).Length + " src=customerCAD(智海ROV.STEP)");
     }
 
     private static Bounds CombinedBounds(GameObject go)

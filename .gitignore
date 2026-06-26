@@ -89,3 +89,4 @@ HDRPDefaultResources/HDRPDefaultSettings.asset.meta
 /Logs/
 /recframes/
 Assets/RovSim/Models/hercules/hercules.obj
+Assets/RovSim/Models/smartfly/*.obj
