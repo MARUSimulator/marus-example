@@ -91,8 +91,8 @@ public static class RovSimBuild
                     fog.anisotropy.Override(0.86f);              // strong forward scatter = pronounced god-rays
                 }
             }
-            cam.transform.position = rovPos + new Vector3(-2.3f, 0.7f, 1.9f);
-            cam.transform.LookAt(rovPos + new Vector3(0.7f, -0.1f, -0.2f));   // ROV subject, pile face as backdrop
+            cam.transform.position = rovPos + new Vector3(-1.65f, 0.5f, 1.4f);
+            cam.transform.LookAt(rovPos + new Vector3(0.45f, -0.05f, -0.15f));   // ROV subject, pile face as backdrop
             // key light BEHIND the camera (out of frame) as a wide spot toward the ROV+pile — reveals without bloom hotspot
             var aim = rovPos + new Vector3(1.4f, -0.4f, 0f);
             var kgo = new GameObject("cap_key");
@@ -100,7 +100,7 @@ public static class RovSimBuild
             kgo.transform.rotation = Quaternion.LookRotation((aim - kgo.transform.position).normalized);
             var KL = kgo.AddComponent<Light>(); KL.type = LightType.Spot; KL.spotAngle = 70f; KL.innerSpotAngle = 30f;
             KL.range = 22f; KL.spotAngle = 96f; KL.color = new Color(0.92f, 0.96f, 1f);
-            var khd = kgo.AddComponent<HDAdditionalLightData>(); khd.SetIntensity(1700f, LightUnit.Lumen);
+            var khd = kgo.AddComponent<HDAdditionalLightData>(); khd.SetIntensity(2700f, LightUnit.Lumen);
             khd.affectsVolumetric = true; khd.volumetricDimmer = 0.4f; KL.shadows = LightShadows.None;
             var pgo = new GameObject("cap_pile_light");
             pgo.transform.position = new Vector3(6.0f, -1.2f, -3.6f);
@@ -113,7 +113,7 @@ public static class RovSimBuild
             var prof = ScriptableObject.CreateInstance<VolumeProfile>(); vol.profile = prof;
             var exp = prof.Add<UnityEngine.Rendering.HighDefinition.Exposure>(true);
             exp.mode.Override(UnityEngine.Rendering.HighDefinition.ExposureMode.Fixed);
-            exp.fixedExposure.Override(5.2f);   // EV; higher = darker (tame the bright ROV)
+            exp.fixedExposure.Override(4.3f);   // EV; higher = darker (tame the bright ROV)
             // god-ray shaft from above-behind, angled down through the frame (volumetric spot)
             var sgo = new GameObject("cap_godray");
             sgo.transform.position = rovPos + new Vector3(-1.2f, 5.5f, 1.2f);
