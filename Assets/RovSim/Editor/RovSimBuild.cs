@@ -716,10 +716,14 @@ public static class RovSimBuild
                   " renderers=" + vis.GetComponentsInChildren<MeshRenderer>(true).Length + " credit=EVNautilus(CC-BY-4.0)");
     }
 
+    [System.Serializable] private class SfColor { public string name; public float r, g, b, metallic, smoothness; }
+    [System.Serializable] private class SfColorTable { public SfColor[] items; }
+
     private static void SwapInSmartFlyRov(GameObject rov)
     {
-        // Customer SmartFly/智海 inspection ROV — body mesh from their own CAD (智海ROV.STEP).
-        const string obj = "Assets/RovSim/Models/smartfly/smartfly_body.obj";
+        // Customer SmartFly/智海 inspection ROV — multi-material colored mesh from their own CAD (智海ROV.STEP),
+        // 31 submeshes carrying the real per-part CAD colors + reconstructed ducted-thruster shrouds.
+        const string obj = "Assets/RovSim/Models/smartfly/smartfly_real_v2.obj";
         var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(obj);
         if (prefab == null) { Debug.LogError("SMARTFLY_MISSING " + obj + " -> falling back to Fuel ROV"); SwapInFuelRov(rov); return; }
 
@@ -737,28 +741,39 @@ public static class RovSimBuild
         var vis = (GameObject)UnityEngine.Object.Instantiate(prefab);
         vis.name = "smartfly_visual";
         vis.transform.SetParent(baseT, false);
-        vis.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);   // mesh Z-up -> Unity Y-up
+        vis.transform.localRotation = Quaternion.identity;   // real-CAD OBJ is already Y-up (yellow floats on top)
         vis.transform.localScale = Vector3.one;
 
         var shader = Shader.Find("HDRP/Lit");
+        // load the real per-part CAD color table (31 materials, by MTL name m0..mduct5)
+        var ctab = new System.Collections.Generic.Dictionary<string, SfColor>();
+        try {
+            var js = System.IO.File.ReadAllText(RepoFile("Assets/RovSim/smartfly_real_v2_colors.json"));
+            var tab = JsonUtility.FromJson<SfColorTable>(js);
+            foreach (var it in tab.items) ctab[it.name] = it;
+        } catch (Exception e) { Debug.LogError("SMARTFLY_COLORS_LOAD_FAIL " + e.Message); }
         if (shader != null)
         {
-            Material Mk(Color c, float metal, float smooth, string nm)
-            {
-                var m2 = new Material(shader) { name = nm };
-                m2.SetColor("_BaseColor", c);
-                if (m2.HasProperty("_Metallic")) m2.SetFloat("_Metallic", metal);
-                if (m2.HasProperty("_Smoothness")) m2.SetFloat("_Smoothness", smooth);
-                return m2;
+            var cache = new System.Collections.Generic.Dictionary<string, Material>();
+            Material MatFor(string key) {
+                if (cache.TryGetValue(key, out var mm)) return mm;
+                var m2 = new Material(shader) { name = "M_sf_" + key };
+                if (ctab.TryGetValue(key, out var e)) {
+                    m2.SetColor("_BaseColor", new Color(e.r, e.g, e.b));
+                    if (m2.HasProperty("_Metallic")) m2.SetFloat("_Metallic", e.metallic);
+                    if (m2.HasProperty("_Smoothness")) m2.SetFloat("_Smoothness", e.smoothness);
+                } else { m2.SetColor("_BaseColor", new Color(0.45f, 0.46f, 0.48f)); if (m2.HasProperty("_Metallic")) m2.SetFloat("_Metallic", 0.7f); }
+                cache[key] = m2; return m2;
             }
-            var bodyMat = Mk(new Color(0.90f, 0.72f, 0.10f), 0.25f, 0.20f, "M_smartfly_body");   // inspection-yellow
-            var frameMat = Mk(new Color(0.10f, 0.11f, 0.13f), 0.6f, 0.30f, "M_smartfly_frame");
             foreach (var r in vis.GetComponentsInChildren<MeshRenderer>(true))
             {
                 r.enabled = true; r.shadowCastingMode = ShadowCastingMode.On;
-                var mf = r.GetComponent<MeshFilter>();
-                int subs = (mf != null && mf.sharedMesh != null) ? mf.sharedMesh.subMeshCount : 1;
-                r.sharedMaterials = subs >= 2 ? new[] { bodyMat, frameMat } : new[] { bodyMat };
+                var src = r.sharedMaterials; var outm = new Material[src.Length];
+                for (int i = 0; i < src.Length; i++) {
+                    var nm = (src[i] != null ? src[i].name : ("m" + i)).Replace(" (Instance)", "").Trim();
+                    outm[i] = MatFor(nm);
+                }
+                r.sharedMaterials = outm;
             }
         }
 
@@ -777,7 +792,7 @@ public static class RovSimBuild
 
         // TRUE customer-CAD scale: mesh is in mm -> x0.001 = real size (~0.907 x 1.091 x 1.131 m). Do NOT
         // force-normalize to a fixed length (that imposed a wrong size); use the actual CAD dimensions.
-        vis.transform.localScale = Vector3.one * 0.001f;
+        vis.transform.localScale = Vector3.one;   // colored OBJ already in meters
         var b = CombinedBounds(vis);
         float maxDim = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
         vis.transform.position += baseT.position - b.center;
