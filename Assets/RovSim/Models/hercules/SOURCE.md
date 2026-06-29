@@ -7,8 +7,8 @@
 - **Provided as:** `rov_hercules.zip` (glTF: `scene.gltf` + `scene.bin`), no UV / no texture (STL-derived).
 
 ## Regenerate `hercules.obj` (the Unity-importable asset)
-`hercules.obj` (382k faces, ~52 MB) is **derived** from the glTF and treated as a large binary
-(HuggingFace / local, not committed raw to keep git lean). To regenerate:
+`hercules.obj` (382k faces) is **derived** from the glTF and checked in so the default
+release scene builds without external asset downloads. To regenerate:
 
 ```bash
 python - <<'PY'

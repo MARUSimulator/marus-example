@@ -28,7 +28,7 @@ public class RovPilotController : MonoBehaviour
     public float surfaceZ = 0f;
     public bool drawHud = true;
     public bool logCsv = true;
-    public string csvPath = "/mnt/storage/marus-rov-sim/logs/rov_session.csv";
+    public string csvPath = "";
 
     [Header("Sensors / mission")]
     public Vector3 worksite = new Vector3(6.5f, -4.3f, -3.6f);   // worksite waypoint in MuJoCo world (z up); set by build
@@ -39,7 +39,7 @@ public class RovPilotController : MonoBehaviour
 
     [Header("Headless metrics")]
     public bool logMetrics = false;
-    public string metricsPath = "/mnt/storage/marus-rov-sim/rov_motion_log.txt";
+    public string metricsPath = "";
     public float autoQuitSeconds = 0f;
 
     private MjScene _scene;
@@ -574,9 +574,8 @@ public class RovPilotController : MonoBehaviour
         if (!logCsv) return;
         try
         {
-            var env = Environment.GetEnvironmentVariable("ROVSIM_CSV");
-            if (!string.IsNullOrEmpty(env)) csvPath = env;
-            Directory.CreateDirectory(Path.GetDirectoryName(csvPath));
+            csvPath = ResolveOutputPath("ROVSIM_CSV", csvPath, "rov_session.csv");
+            EnsureParentDirectory(csvPath);
             _csv = new StreamWriter(csvPath, false);
             _csv.WriteLine("step,sim_time,fps,pos_x,pos_y,pos_z,depth_m,altitude_m,heading_deg,pitch_deg,roll_deg," +
                            "vel_x,vel_y,vel_z,speed_mps,vspeed_mps,cmd_surge,cmd_sway,cmd_heave,cmd_yaw," +
@@ -610,6 +609,8 @@ public class RovPilotController : MonoBehaviour
         try
         {
             var c = CultureInfo.InvariantCulture;
+            metricsPath = ResolveOutputPath("ROVSIM_METRICS", metricsPath, "rov_motion_log.txt");
+            EnsureParentDirectory(metricsPath);
             File.WriteAllText(metricsPath,
                 "reason=" + reason + "\nsteps=" + _step + "\nbase_translation_m=" + _maxTranslation.ToString("R", c) +
                 "\nfinal_depth_m=" + _depth.ToString("R", c) + "\nfinal_altitude_m=" + _altitude.ToString("R", c) +
@@ -620,5 +621,21 @@ public class RovPilotController : MonoBehaviour
                       " mission=" + _mstate + " score=" + _score.ToString("F0") + " complete=" + (_mstate == MState.Complete ? "yes" : "no"));
         }
         catch (Exception ex) { Debug.LogError("ROVPILOT_METRICS_FAIL " + ex); }
+    }
+
+    private static string ResolveOutputPath(string envName, string configuredPath, string fileName)
+    {
+        var env = Environment.GetEnvironmentVariable(envName);
+        if (!string.IsNullOrEmpty(env)) return env;
+        if (!string.IsNullOrEmpty(configuredPath)) return configuredPath;
+        var root = Application.persistentDataPath;
+        if (string.IsNullOrEmpty(root)) root = Directory.GetCurrentDirectory();
+        return Path.Combine(root, fileName);
+    }
+
+    private static void EnsureParentDirectory(string path)
+    {
+        var dir = Path.GetDirectoryName(Path.GetFullPath(path));
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
     }
 }

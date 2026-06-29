@@ -8,7 +8,12 @@ using UnityEngine;
 // and that xfrc_applied drives the base (pre-validates C5 = drive-by-force, not teleport).
 public static class MjRovSmoke
 {
-    private const string Mjcf = "/mnt/storage/marus-rov-sim/staging/rov_v1.xml";
+    private static string Mjcf {
+        get {
+            return System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(Application.dataPath, "..", "staging", "rov_v1.xml"));
+        }
+    }
 
     public static void Run()
     {
@@ -19,6 +24,7 @@ public static class MjRovSmoke
     private static unsafe bool RunInner()
     {
         Debug.Log("MJROV_START mjcf=" + Mjcf);
+        RovSimMjImportAssets.CleanForMjcf(Mjcf);
         var root = new MjImporterWithAssets().ImportFile(Mjcf);
         int nb = root.GetComponentsInChildren<MjBody>(true).Length;
         int ng = root.GetComponentsInChildren<MjGeom>(true).Length;

@@ -28,7 +28,12 @@ echo "    OK: $BUILD"
 echo "[2/4] Headless physics oracles (RovSimTest)..."
 "$UNITY" -batchmode -nographics -quit -projectPath "$REPO" \
   -executeMethod RovSimTest.RunHeadless -logFile "$REPO/Logs/oracle.log" < /dev/null
-grep -E "ROVTEST_RESULT" "$REPO/Logs/oracle.log" || { echo "ORACLE LOG MISSING"; exit 1; }
+grep -q "ROVTEST_RESULT ALL_PASS 25/25" "$REPO/Logs/oracle.log" || {
+  echo "ORACLE FAILED OR INCOMPLETE"
+  grep -E "ROVTEST_RESULT|ORACLE" "$REPO/Logs/oracle.log" || true
+  exit 1
+}
+grep -E "ROVTEST_RESULT" "$REPO/Logs/oracle.log"
 
 echo "[3/4] Record the ${SECS}s demo (DISPLAY=$DISPLAY_ID)..."
 rm -rf "$FRAMES"; mkdir -p "$FRAMES"

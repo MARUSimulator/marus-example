@@ -15,8 +15,7 @@ public static class RovSimTest
 {
     private static string Mjcf {
         get {
-            var p = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "staging", "rov_v2.xml"));
-            return File.Exists(p) ? p : "/mnt/storage/marus-rov-sim/staging/rov_v2.xml";
+            return Path.GetFullPath(Path.Combine(Application.dataPath, "..", "staging", "rov_v2.xml"));
         }
     }
     private static string LogDir => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Logs"));
@@ -44,6 +43,7 @@ public static class RovSimTest
         Directory.CreateDirectory(LogDir);
         Time.fixedDeltaTime = Dt;
 
+        RovSimMjImportAssets.CleanForMjcf(Mjcf);
         var root = new MjImporterWithAssets().ImportFile(Mjcf);
         var scene = MjScene.Instance;
         scene.CreateScene();

@@ -88,6 +88,8 @@ HDRPDefaultResources/HDRPDefaultSettings.asset.meta
 /Builds/
 /Logs/
 /recframes/
-Assets/RovSim/Models/hercules/hercules.obj
+/MUJOCO_LOG.TXT
+/staging/herc_frames*/
+/staging/rov_v2_ue.xml
 Assets/RovSim/Models/smartfly/*.obj
 Assets/RovSim/Models/smartfly/smartfly_real_v2.obj

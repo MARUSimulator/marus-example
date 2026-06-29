@@ -10,13 +10,43 @@ using UnityEngine.Rendering.HighDefinition;
 
 // Builds the v1 ROV sim: injects the org.mujoco ROV + pilot controller into MARUS's HDRP ExampleScene
 // (reusing MARUS's working lighting/sky/water), then optionally builds a standalone Linux player.
+public static class RovSimMjImportAssets
+{
+    public static void CleanForMjcf(string mjcfPath)
+    {
+        var modelPrefix = System.IO.Path.GetFileNameWithoutExtension(mjcfPath);
+        if (string.IsNullOrEmpty(modelPrefix)) return;
+
+        var importsDir = System.IO.Path.GetFullPath(
+            System.IO.Path.Combine(Application.dataPath, "Local", "MjImports"));
+        if (!System.IO.Directory.Exists(importsDir)) return;
+
+        int removed = 0;
+        foreach (var dir in System.IO.Directory.GetDirectories(importsDir, modelPrefix + "*"))
+        {
+            var assetPath = "Assets" + dir.Substring(Application.dataPath.Length).Replace('\\', '/');
+            if (AssetDatabase.DeleteAsset(assetPath))
+                removed++;
+            else if (System.IO.Directory.Exists(dir))
+            {
+                System.IO.Directory.Delete(dir, true);
+                removed++;
+            }
+        }
+        if (removed > 0)
+        {
+            AssetDatabase.Refresh();
+            Debug.Log("ROVIMPORT_CACHE_CLEARED prefix=" + modelPrefix + " dirs=" + removed);
+        }
+    }
+}
+
 public static class RovSimBuild
 {
     // repo-relative resolution so the demo reproduces from a clone (falls back to the dev path)
     private static string RepoFile(string rel)
     {
-        var p = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", rel));
-        return System.IO.File.Exists(p) ? p : "/mnt/storage/marus-rov-sim/" + rel;
+        return System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", rel));
     }
     private static string Mjcf => RepoFile("staging/rov_v2.xml");   // v2 = vehicle + manipulator arm
     // environment selector (set ROVSIM_SCENE=deepwater for the clear blue-water site)
@@ -153,6 +183,8 @@ public static class RovSimBuild
     {
         var scene = EditorSceneManager.OpenScene(BaseScene, OpenSceneMode.Single);
         QualitySettings.SetQualityLevel(QualitySettings.names.Length - 1, true);
+        DisableUpstreamRuntimeClients();
+        RovSimMjImportAssets.CleanForMjcf(Mjcf);
 
         var rov = new MjImporterWithAssets().ImportFile(Mjcf);
         rov.name = "rov_v1";
@@ -216,11 +248,50 @@ public static class RovSimBuild
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene, OutScene);
+        ScrubTrailingWhitespace(OutScene);
         AssetDatabase.SaveAssets();
         Debug.Log("ROVBUILD_SCENE_SAVED out=" + OutScene +
                   " rovBodies=" + rov.GetComponentsInChildren<MjBody>(true).Length +
                   " rovGeoms=" + rov.GetComponentsInChildren<MjGeom>(true).Length +
                   " cam=" + (cam != null ? cam.name : "none"));
+    }
+
+    private static void ScrubTrailingWhitespace(string assetPath)
+    {
+        var path = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", assetPath));
+        if (!System.IO.File.Exists(path)) return;
+        var lines = System.IO.File.ReadAllLines(path);
+        for (int i = 0; i < lines.Length; i++) lines[i] = lines[i].TrimEnd(' ', '\t');
+        System.IO.File.WriteAllText(path, string.Join("\n", lines) + "\n");
+    }
+
+    private static void DisableUpstreamRuntimeClients()
+    {
+        var remove = new System.Collections.Generic.List<GameObject>();
+        foreach (var go in UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (go == null) continue;
+            var goName = go.name;
+            if (goName.IndexOf("marus_boat", StringComparison.OrdinalIgnoreCase) >= 0)
+                remove.Add(go);
+            else if (goName.IndexOf("RosConnection", StringComparison.OrdinalIgnoreCase) >= 0)
+                go.SetActive(false);
+        }
+        foreach (var go in remove)
+            if (go != null) UnityEngine.Object.DestroyImmediate(go);
+        foreach (var mb in UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (mb == null) continue;
+            var t = mb.GetType();
+            var name = t.FullName ?? t.Name;
+            if (name.IndexOf(".ROS.", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("Ros", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("RosConnection", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("TfStreamerROS", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("SensorStreamer", StringComparison.OrdinalIgnoreCase) >= 0)
+                mb.enabled = false;
+        }
+        Debug.Log("UPSTREAM_CLIENTS_DISABLED ros/grpc clients disabled and inherited MARUS vehicle removed for standalone ROV sim");
     }
 
     // MARUS ships sensor-visualization meshes (camera frusta / coordinate gizmos) that render as
@@ -543,7 +614,9 @@ public static class RovSimBuild
         var em = ps.emission; em.rateOverTime = 170f;
         var shp = ps.shape; shp.shapeType = ParticleSystemShapeType.Box; shp.scale = new Vector3(16f, 7f, 16f);
         var vel = ps.velocityOverLifetime; vel.enabled = true;
+        vel.x = new ParticleSystem.MinMaxCurve(0f, 0f);
         vel.y = new ParticleSystem.MinMaxCurve(-0.05f, -0.01f);
+        vel.z = new ParticleSystem.MinMaxCurve(0f, 0f);
         var rend = ps.GetComponent<ParticleSystemRenderer>();
         var psh = Shader.Find("HDRP/Unlit");
         if (psh != null)

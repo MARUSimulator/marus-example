@@ -1,16 +1,18 @@
-# OceanScale ROV Sim (v1)
+# OceanScale ROV Sim
 
-A standalone Unity ROV/AUV **pilot-training** simulator — vehicle control only (no arm in v1).
+A standalone Unity ROV/AUV **pilot-training** simulator with 6-DOF MuJoCo vehicle control,
+a pilot-controlled manipulator, HUD sensors, multi-camera views, and scripted inspection tasks.
 Forked from [MARUSimulator/marus-example](https://github.com/MARUSimulator/marus-example)
 (`rov-sim-v1` branch). Real MuJoCo physics, real-data dashboard, multi-camera, scripted
 teaching/pitch tour. See [`CHANGELOG.md`](CHANGELOG.md) · version in [`VERSION`](VERSION).
 
 ## Layout (this is all in-repo)
 ```
-Assets/RovSim/            controller, dynamics, input, cameras, HUD, headless test
+Assets/RovSim/            controller, dynamics, input, manipulator, cameras, HUD, headless test
 Assets/RovSim/Editor/     RovSimBuild (scene+player build) · RovSimTest (oracles)
 Assets/RovSim/Models/     Gazebo Fuel ROV (CC-BY) + CC0 seabed/rock textures
 staging/rov_v1.xml        vehicle-only MJCF (MuJoCo, z-up, neutral buoyancy)
+staging/rov_v2.xml        vehicle + manipulator MJCF used by the current oracle/player path
 tools/reproduce_demo.sh   one-command reproduce: build → oracle → record → encode
 Builds/ , Logs/           generated outputs (git-ignored)
 ```
@@ -22,7 +24,7 @@ for the recording step.
 UNITY=/path/to/Unity/6000.0.42f1/Editor/Unity  DISPLAY_ID=:1  tools/reproduce_demo.sh
 # environment variant: prefix with  ROVSIM_SCENE=deepwater  (default: harbor)
 ```
-Produces `Builds/OceanScale_ROV_Sim_demo.mp4` (64 s, two tasks) and the telemetry/logs.
+Produces `Builds/OceanScale_ROV_Sim_demo.mp4` (~90 s, four scripted tasks) and the telemetry/logs.
 
 ## Run / pilot interactively
 Build once (`tools/reproduce_demo.sh` or `-executeMethod RovSimBuild.BuildStandalone`), then:
@@ -31,11 +33,13 @@ DISPLAY=:1 Builds/rov_sim_v1.x86_64 -screen-width 1280 -screen-height 720
 ```
 Controls: **W/S** surge · **A/D** sway · **R/F** heave · **Q/E** yaw, or a Logitech gamepad
 (F310/F710) / flight stick.
+Manipulator controls: **J/L** azimuth · **I/K** shoulder · **U/O** elbow · **Y/H** wrist ·
+**B/G** jaw open/close.
 
 ## Verify physics (headless, no display)
 ```bash
 $UNITY -batchmode -nographics -quit -projectPath . -executeMethod RovSimTest.RunHeadless -logFile Logs/oracle.log
-grep ROVTEST_RESULT Logs/oracle.log     # -> ALL_PASS 20/20
+grep ROVTEST_RESULT Logs/oracle.log     # -> ALL_PASS 25/25
 ```
 
 ## Honesty

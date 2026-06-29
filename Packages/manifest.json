@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "org.mujoco": "file:/mnt/storage/install-campaign-2026-06-18/unity/mujoco/unity",
+    "org.mujoco": "file:Packages/org.mujoco",
     "com.unity.ai.navigation": "2.0.8",
     "com.unity.collab-proxy": "2.7.1",
     "com.unity.inputsystem": "1.13.1",

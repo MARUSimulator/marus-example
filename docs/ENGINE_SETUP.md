@@ -6,8 +6,7 @@ regenerable caches/builds are NOT in the repo — only source + scenes + configs
 content textures/meshes are versioned.
 
 ## Engine (NOT committed — install separately, document version)
-- **Unity 6000.0.42f1 LTS** (install via Unity Hub, or the offline editor at
-  `/mnt/storage/marus-rov-sim/unity-6000.0.42f1/Editor/Unity` on the build host).
+- **Unity 6000.0.42f1 LTS** (install via Unity Hub or use an equivalent offline editor).
 - Render: **HDRP 17.0.4** · Physics: **org.mujoco 3.8.1** — both pinned in `Packages/manifest.json`
   + `Packages/packages-lock.json` (versioned). `git clone` + open in the editor restores them.
 
@@ -20,7 +19,7 @@ content textures/meshes are versioned.
 
 ## Build / verify (headless, no display)
 ```bash
-UNITY=/mnt/storage/marus-rov-sim/unity-6000.0.42f1/Editor/Unity
+UNITY=/path/to/Unity/Editor/Unity
 # physics + manipulator oracles (CI gate, ALL_PASS 25/25):
 "$UNITY" -batchmode -nographics -quit -projectPath . -executeMethod RovSimTest.RunHeadless -logFile Logs/oracle.log
 # full standalone build + the demo video:
