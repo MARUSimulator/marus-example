@@ -1,0 +1,93 @@
+newmtl m0
+Kd 0.160 0.170 0.200
+illum 2
+newmtl m1
+Kd 0.000 0.502 1.000
+illum 2
+newmtl m2
+Kd 1.000 0.937 0.137
+illum 2
+newmtl m3
+Kd 0.647 0.620 0.588
+illum 2
+newmtl m4
+Kd 0.502 1.000 1.000
+illum 2
+newmtl m5
+Kd 0.000 1.000 0.000
+illum 2
+newmtl m6
+Kd 0.502 0.502 0.753
+illum 2
+newmtl m7
+Kd 0.498 0.498 0.498
+illum 2
+newmtl m8
+Kd 0.792 0.820 0.929
+illum 2
+newmtl m9
+Kd 0.502 0.251 0.251
+illum 2
+newmtl m10
+Kd 0.000 1.000 1.000
+illum 2
+newmtl m11
+Kd 0.898 0.918 0.929
+illum 2
+newmtl m12
+Kd 0.843 0.816 0.753
+illum 2
+newmtl m13
+Kd 0.753 0.753 0.753
+illum 2
+newmtl m14
+Kd 0.200 0.400 0.698
+illum 2
+newmtl m15
+Kd 1.000 1.000 1.000
+illum 2
+newmtl m16
+Kd 1.000 0.000 0.000
+illum 2
+newmtl m17
+Kd 0.604 0.604 0.604
+illum 2
+newmtl m18
+Kd 0.694 0.098 0.098
+illum 2
+newmtl m19
+Kd 0.298 0.298 0.298
+illum 2
+newmtl m20
+Kd 0.776 0.757 0.737
+illum 2
+newmtl m21
+Kd 0.686 0.659 0.639
+illum 2
+newmtl m22
+Kd 0.502 0.251 0.000
+illum 2
+newmtl m23
+Kd 0.792 0.820 0.933
+illum 2
+newmtl m24
+Kd 0.871 0.318 0.267
+illum 2
+newmtl mduct0
+Kd 0.170 0.180 0.200
+illum 2
+newmtl mduct1
+Kd 0.170 0.180 0.200
+illum 2
+newmtl mduct2
+Kd 0.170 0.180 0.200
+illum 2
+newmtl mduct3
+Kd 0.170 0.180 0.200
+illum 2
+newmtl mduct4
+Kd 0.170 0.180 0.200
+illum 2
+newmtl mduct5
+Kd 0.170 0.180 0.200
+illum 2

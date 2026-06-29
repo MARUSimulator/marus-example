@@ -1,0 +1,74 @@
+<mujoco model="rov_v2">
+  <!-- v2 = v1 vehicle + a 4-DOF subsea manipulator arm with a parallel jaw (ROV intervention).
+       Base (body 1) driven by xfrc_applied exactly as v1 -> all v1 base oracles stay valid.
+       Arm is appended AFTER the base so base body id (1) and base dof adr (0) are unchanged.
+       Arm joints are position-actuated (ctrl = target angle). MuJoCo z-up; gravity 0 (neutral buoyancy). -->
+  <option gravity="0 0 0" timestep="0.0025" integrator="implicit"/>
+  <compiler angle="radian"/>
+
+  <default>
+    <geom contype="1" conaffinity="1" friction="0.6 0.05 0.01"/>
+    <default class="arm">
+      <!-- heavily geared, damped joints (like a non-backdrivable hydraulic manipulator) for numerical
+           stability in org.mujoco; armature dominates inertia so the position servo can't go stiff/unstable -->
+      <joint type="hinge" damping="3.0" armature="0.15"/>
+      <!-- arm is kinematic for v2 (no self-collision with the hull); grasp-contact pads added later -->
+      <geom type="capsule" rgba="0.85 0.55 0.12 1" density="600" contype="0" conaffinity="0"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0">
+      <freejoint name="base_free"/>
+      <inertial pos="0 0 0" mass="11.5" diaginertia="0.21 0.245 0.30"/>
+      <geom name="hull" type="box" size="0.230 0.180 0.090" rgba="0.96 0.78 0.16 1"/>
+      <geom name="deck" type="box" pos="0 0 0.105" size="0.180 0.140 0.022" rgba="0.16 0.17 0.19 1"/>
+      <geom name="float_fl" type="capsule" fromto="0.18 0.14 0.07  -0.18 0.14 0.07" size="0.028" rgba="0.92 0.92 0.92 1"/>
+      <geom name="float_fr" type="capsule" fromto="0.18 -0.14 0.07 -0.18 -0.14 0.07" size="0.028" rgba="0.92 0.92 0.92 1"/>
+      <geom name="thr_fl" type="cylinder" fromto="0.20 0.15 0  0.26 0.21 0" size="0.030" rgba="0.10 0.10 0.10 1"/>
+      <geom name="thr_fr" type="cylinder" fromto="0.20 -0.15 0  0.26 -0.21 0" size="0.030" rgba="0.10 0.10 0.10 1"/>
+      <geom name="thr_rl" type="cylinder" fromto="-0.20 0.15 0  -0.26 0.21 0" size="0.030" rgba="0.10 0.10 0.10 1"/>
+      <geom name="thr_rr" type="cylinder" fromto="-0.20 -0.15 0  -0.26 -0.21 0" size="0.030" rgba="0.10 0.10 0.10 1"/>
+      <geom name="thr_vl" type="cylinder" fromto="0 0.12 0.04  0 0.12 0.12" size="0.028" rgba="0.10 0.10 0.10 1"/>
+      <geom name="thr_vr" type="cylinder" fromto="0 -0.12 0.04 0 -0.12 0.12" size="0.028" rgba="0.10 0.10 0.10 1"/>
+      <geom name="cam" type="box" pos="0.235 0 0.02" size="0.012 0.05 0.03" rgba="0.05 0.05 0.06 1"/>
+
+      <!-- ===== manipulator arm (starboard-front-bottom mount, reaches forward +x) ===== -->
+      <body name="arm_azi" pos="0.20 -0.10 -0.05" childclass="arm">
+        <joint name="j_azimuth" axis="0 0 1" range="-1.4 1.4"/>
+        <geom name="g_azi" fromto="0 0 0  0.05 0 0" size="0.022"/>
+        <body name="arm_shoulder" pos="0.05 0 0">
+          <joint name="j_shoulder" axis="0 1 0" range="-1.2 1.2"/>
+          <geom name="g_upper" fromto="0 0 0  0.20 0 0" size="0.020"/>
+          <body name="arm_fore" pos="0.20 0 0">
+            <joint name="j_elbow" axis="0 1 0" range="-2.3 0.2"/>
+            <geom name="g_fore" fromto="0 0 0  0.17 0 0" size="0.017"/>
+            <body name="arm_wrist" pos="0.17 0 0">
+              <joint name="j_wrist" axis="0 1 0" range="-1.5 1.5"/>
+              <geom name="g_wrist" fromto="0 0 0  0.05 0 0" size="0.015"/>
+              <site name="ee_site" pos="0.10 0 0" size="0.006" rgba="0.2 1 0.4 1"/>
+              <!-- parallel jaw: two fingers, opened/closed by mirrored hinges -->
+              <body name="jaw_l" pos="0.05 0.018 0">
+                <joint name="j_jaw_l" axis="0 0 1" range="0 0.85"/>
+                <geom name="g_jaw_l" fromto="0 0 0  0.055 0.012 0" size="0.0075" rgba="0.2 0.2 0.22 1"/>
+              </body>
+              <body name="jaw_r" pos="0.05 -0.018 0">
+                <joint name="j_jaw_r" axis="0 0 1" range="-0.85 0"/>
+                <geom name="g_jaw_r" fromto="0 0 0  0.055 -0.012 0" size="0.0075" rgba="0.2 0.2 0.22 1"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="a_azimuth"  joint="j_azimuth"  kp="22" ctrlrange="-1.4 1.4"/>
+    <position name="a_shoulder" joint="j_shoulder" kp="20" ctrlrange="-1.2 1.2"/>
+    <position name="a_elbow"    joint="j_elbow"    kp="16" ctrlrange="-2.3 0.2"/>
+    <position name="a_wrist"    joint="j_wrist"    kp="8"  ctrlrange="-1.5 1.5"/>
+    <position name="a_jaw_l"    joint="j_jaw_l"    kp="4"  ctrlrange="0 0.85"/>
+    <position name="a_jaw_r"    joint="j_jaw_r"    kp="4"  ctrlrange="-0.85 0"/>
+  </actuator>
+</mujoco>

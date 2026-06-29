@@ -1,0 +1,22 @@
+{
+  "name": "RovSim.Editor",
+  "rootNamespace": "",
+  "references": [
+    "GUID:2e7c8f72b9bf6fbde8df7c76f3f9f6c2",
+    "GUID:62e270fc6ccbe61c59f510a8e31d067c",
+    "GUID:7bdf927c2041ed42ba41bdbbf914db24",
+    "GUID:df380645f10b7bc4b97d4f5eb6303d95",
+    "GUID:457756d89b35d2941b3e7b37b4ece6f1"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": true,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

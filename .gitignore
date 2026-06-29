@@ -75,3 +75,24 @@ crashlytics-build.properties
 API/Protobuf
 .idea
 HDRPDefaultResources/HDRPDefaultSettings.asset.meta
+
+# Paid Crest 5 (unlicensed-provenance) + scratch — kept OUT of this branch
+/Packages/com.waveharmonic.crest/
+/Assets/Samples-Crest5/
+/Assets/Samples-Crest5.meta
+/Assets/Local/
+/Assets/Local.meta
+/Assets/Resources.meta
+
+# RovSim generated outputs (reproducible via tools/reproduce_demo.sh)
+/Builds/
+/Logs/
+/recframes/
+/MUJOCO_LOG.TXT
+/staging/herc_frames*/
+/staging/rov_v2_ue.xml
+/Assets/RovSim/rov_sim_v1.unity
+/Assets/RovSim/rov_sim_v1.unity.meta
+Assets/RovSim/Models/smartfly/*.obj
+Assets/RovSim/Models/smartfly/*.obj.meta
+Assets/RovSim/Models/smartfly/smartfly_real_v2.obj

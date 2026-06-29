@@ -192,6 +192,12 @@
       "dependencies": {},
       "hash": "3a2c24e5841c63e0c3bc454949d0fa44fb5f86e1"
     },
+    "org.mujoco": {
+      "version": "file:org.mujoco",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",
       "depth": 0,

@@ -1,0 +1,62 @@
+newmtl m0
+Kd 0.500 0.500 0.500
+newmtl m1
+Kd 0.376 0.342 0.305
+newmtl m2
+Kd 0.050 0.200 0.620
+newmtl m3
+Kd 0.050 0.200 0.620
+newmtl m4
+Kd 0.216 0.216 0.527
+newmtl m5
+Kd 0.060 0.500 0.120
+newmtl m6
+Kd 0.527 0.527 0.527
+newmtl m7
+Kd 0.050 0.200 0.620
+newmtl m8
+Kd 0.212 0.212 0.212
+newmtl m9
+Kd 0.033 0.133 0.445
+newmtl m10
+Kd 0.216 0.051 0.051
+newmtl m11
+Kd 0.950 0.800 0.060
+newmtl m12
+Kd 0.050 0.200 0.620
+newmtl m13
+Kd 1.000 0.000 0.000
+newmtl m14
+Kd 1.000 1.000 1.000
+newmtl m15
+Kd 0.784 0.823 0.847
+newmtl m16
+Kd 0.680 0.631 0.527
+newmtl m17
+Kd 0.216 0.051 0.000
+newmtl m18
+Kd 0.565 0.533 0.503
+newmtl m19
+Kd 0.429 0.392 0.366
+newmtl m20
+Kd 0.323 0.323 0.323
+newmtl m21
+Kd 0.440 0.010 0.010
+newmtl m22
+Kd 0.080 0.080 0.090
+newmtl m23
+Kd 0.050 0.200 0.620
+newmtl m24
+Kd 0.730 0.082 0.058
+newmtl prop0
+Kd 0.700 0.720 0.740
+newmtl prop1
+Kd 0.700 0.720 0.740
+newmtl prop2
+Kd 0.700 0.720 0.740
+newmtl prop3
+Kd 0.700 0.720 0.740
+newmtl prop4
+Kd 0.700 0.720 0.740
+newmtl prop5
+Kd 0.700 0.720 0.740
